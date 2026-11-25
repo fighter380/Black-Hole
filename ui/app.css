@@ -47,15 +47,31 @@ html, body {
   position: relative;
 }
 
-/* Barre supérieure droite */
+/* Barre supérieure */
+body { --lab-content-top: 60px; }
 .lab-topbar {
   position: fixed;
   top: 12px;
-  right: 12px;
+  inset-inline: 12px;
   z-index: 1050;
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(200px, 22vw, 320px) minmax(0, 1fr);
+  grid-template-areas: "navigation search shortcuts";
   align-items: center;
   gap: 8px;
+}
+
+.lab-navigation,
+.lab-folder-actions,
+.lab-shortcuts,
+.lab-graph-controls { display: flex; align-items: center; gap: 6px; }
+.lab-navigation { grid-area: navigation; }
+.lab-shortcuts { grid-area: shortcuts; justify-self: end; }
+.lab-topbar .lab-search-wrap { grid-area: search; width: min(100%, 420px); justify-self: center; }
+.lab-graph-controls {
+  position: fixed;
+  inset: auto auto 12px 12px;
+  z-index: 1050;
 }
 
 .lab-views {
@@ -84,7 +100,7 @@ html, body {
 .lab-view-tab:hover { background: #2b203b; color: #fff; }
 .lab-view-tab[aria-pressed="true"] { background: #3b2459; color: #f3e7ff; }
 
-.lab-topbar .sbbh-toolbar-button,
+:is(.lab-topbar, .lab-graph-controls) .sbbh-toolbar-button,
 .sbbh-view .sbbh-toolbar-button,
 .lab-btn {
   appearance: none;
@@ -103,18 +119,18 @@ html, body {
   transition: background-color .15s, border-color .15s;
 }
 
-.lab-topbar .sbbh-toolbar-button:hover,
+:is(.lab-topbar, .lab-graph-controls) .sbbh-toolbar-button:hover,
 .sbbh-view .sbbh-toolbar-button:hover,
 .lab-btn:hover { border-color: #72549c; background: #2b203b; color: #fff; }
 
-.lab-topbar .sbbh-toolbar-button.is-active,
+:is(.lab-topbar, .lab-graph-controls) .sbbh-toolbar-button.is-active,
 .lab-topbar .sbbh-toolbar-button[aria-pressed="true"] {
   border-color: #a064ee;
   color: #eedbff;
   background: #3b2459;
 }
 
-.lab-topbar .sbbh-toolbar-button:focus-visible,
+:is(.lab-topbar, .lab-graph-controls) .sbbh-toolbar-button:focus-visible,
 .lab-view-tab:focus-visible,
 .lab-btn:focus-visible,
 .lab-color-field:focus-visible,
@@ -125,7 +141,7 @@ html, body {
 
 .lab-link-status {
   position: fixed;
-  top: 53px;
+  top: var(--lab-content-top);
   right: 12px;
   z-index: 1040;
   max-width: min(450px, calc(100vw - 24px));
@@ -142,7 +158,7 @@ html, body {
 .lab-search-wrap { position: relative; }
 
 #lab-search {
-  width: 260px;
+  width: 100%;
   padding: 6px 12px;
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -190,13 +206,14 @@ html, body {
 /* Panneau Code Studio */
 .lab-drawer {
   position: fixed;
-  top: 56px;
+  top: var(--lab-content-top);
   right: 12px;
   bottom: 12px;
   width: min(680px, calc(100vw - 24px));
   z-index: 1100;
   display: flex;
   flex-direction: column;
+  container-type: inline-size;
   border-radius: 14px;
   border: 1px solid rgba(255, 255, 255, 0.14);
   background: #0e0e13;
@@ -207,12 +224,20 @@ html, body {
 .lab-drawer[hidden] { display: none; }
 
 .lab-workspace {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr) auto;
   flex: 1;
   min-height: 0;
 }
 
+.lab-workspace > .lab-editor-host { grid-area: 1 / 1; }
+.lab-workspace > .lab-console { grid-area: 2 / 1; }
 .lab-drawer.is-web { width: min(1440px, calc(100vw - 24px)); }
+.lab-drawer.is-web .lab-workspace {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-rows: minmax(0, 1fr);
+}
 
 .is-files-view {
   display: grid;
@@ -234,12 +259,8 @@ html, body {
   inset: auto;
   z-index: 1120;
   grid-column: 1 / -1;
-  max-width: none;
-  flex-wrap: wrap;
-  justify-content: flex-end;
 }
 
-.is-files-view .lab-views { margin-inline-end: auto; }
 .is-files-view .lab-graph-only,
 .is-files-view .lab-web-files { display: none; }
 
@@ -474,6 +495,7 @@ html, body {
 .lab-web-files [aria-current="true"] { border-color: var(--interactive-accent); }
 
 .lab-web-preview {
+  grid-area: 1 / 2;
   display: flex;
   flex: 1;
   flex-direction: column;
@@ -494,34 +516,47 @@ html, body {
 .lab-web-preview[hidden],
 .lab-console[hidden] { display: none; }
 
-@media (max-width: 1000px) {
-  .lab-topbar { max-width: calc(100vw - 100px); flex-wrap: wrap; justify-content: flex-end; gap: 5px; }
-  #lab-search { width: min(34vw, 260px); }
-  .lab-drawer { top: 97px; }
-  .lab-link-status { top: 97px; }
+@media (max-width: 1370px) {
+  .lab-version-name { display: none; }
+}
+
+@media (max-width: 1160px) {
+  body { --lab-content-top: 101px; }
+  .lab-topbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas: "navigation shortcuts" "search search";
+  }
 }
 
 @media (max-width: 780px) {
   .is-files-view { grid-template-columns: clamp(112px, 25vw, 195px) minmax(0, 1fr); }
-  .lab-drawer.is-web .lab-workspace { flex-direction: column; }
-  .lab-web-preview { border-left: 0; border-top: 1px solid var(--background-modifier-border); }
+  .lab-drawer.is-web .lab-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+  }
+  .lab-web-preview { grid-area: 2 / 1; border-left: 0; border-top: 1px solid var(--background-modifier-border); }
   .lab-tree-kind { display: none; }
 }
 
+@media (max-width: 700px) {
+  body { --lab-content-top: 142px; }
+  .lab-topbar {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "navigation" "search" "shortcuts";
+  }
+  .lab-navigation { flex-wrap: wrap; }
+}
+
 @media (max-width: 550px) {
-  .lab-topbar { max-width: calc(100vw - 24px); }
   .lab-topbar .sbbh-toolbar-button { padding-inline: 8px; }
-  .lab-topbar .lab-search-wrap { order: -1; flex-basis: 100%; text-align: right; }
-  #lab-search { width: min(68vw, 260px); }
   .lab-drawer-header { flex-wrap: wrap; }
   .lab-drawer .lab-drawer-actions { flex-wrap: wrap; flex-shrink: 1; }
   .is-files-view { grid-template-columns: clamp(92px, 27vw, 150px) minmax(0, 1fr); gap: 6px; padding: 8px; }
-  .is-files-view .lab-views { margin-inline-end: 0; }
   .lab-tree-row { padding-inline-start: calc(3px + min(var(--tree-depth, 0), 5) * 8px); }
 }
 
 @media (max-width: 460px) {
-  .lab-drawer, .lab-link-status { top: 122px; }
+  body { --lab-content-top: 180px; }
 }
 
 .lab-drawer-header {
@@ -731,6 +766,7 @@ html, body {
 
 /* Console */
 .lab-console {
+  min-width: 0;
   height: 185px;
   display: flex;
   flex-direction: column;
@@ -771,6 +807,7 @@ html, body {
 .lab-drawer.is-arduino .lab-drawer-actions { flex-shrink: 1; }
 .lab-drawer.is-arduino .lab-console { height: clamp(145px, 33vh, 310px); }
 .lab-drawer.is-arduino:has(.lab-schematic:not([hidden])) .lab-console { height: clamp(115px, 22vh, 200px); }
+.lab-workspace:has(.lab-schematic:not([hidden])) { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); }
 
 .lab-console-header[hidden], .lab-console-output[hidden],
 .lab-arduino-console-controls[hidden], .lab-serial-panel[hidden] { display: none; }
@@ -825,7 +862,7 @@ html, body {
 
 .lab-schematic {
   display: flex;
-  flex: 1.25;
+  grid-area: 1 / 2 / span 2 / 3;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
@@ -864,7 +901,7 @@ html, body {
   display: block;
   width: 100%;
   min-width: 430px;
-  max-height: 65vh;
+  height: 100%;
   border: 1px solid #333746;
   border-radius: 8px;
   background:
@@ -872,9 +909,13 @@ html, body {
     #111520;
   touch-action: none;
 }
-@media (max-width: 850px) {
-  .lab-drawer.is-arduino:has(.lab-schematic:not([hidden])) .lab-workspace { flex-direction: column; }
-  .lab-schematic { border-left: 0; border-top: 1px solid #554263; }
+@container (max-width: 740px) {
+  .lab-workspace:has(.lab-schematic:not([hidden])) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) minmax(0, 1.4fr) auto;
+  }
+  .lab-workspace:has(.lab-schematic:not([hidden])) > .lab-console { grid-area: 3 / 1; }
+  .lab-schematic { grid-area: 2 / 1; border-left: 0; border-top: 1px solid #554263; }
 }
 .lab-schematic-status { min-height: 34px; color: #c3b1d6; font-size: 12px; }
 .lab-schematic-status { white-space: pre-wrap; overflow: auto; max-height: 100px; }
@@ -1015,8 +1056,7 @@ html, body {
   border-color: #604782;
   color: #eedbff;
 }
-body:not(.is-files-view) .lab-version { position: fixed; top: 12px; left: 12px; }
-body:not(.is-files-view) .sbbh-view .sbbh-toolbar { top: 54px; }
+body:not(.is-files-view) .sbbh-view .sbbh-toolbar { top: var(--lab-content-top); }
 #app-version-indicator {
   width: 7px;
   height: 7px;
@@ -1026,13 +1066,6 @@ body:not(.is-files-view) .sbbh-view .sbbh-toolbar { top: 54px; }
 [data-update-state="current"] #app-version-indicator { background: #68d8ad; }
 [data-update-state="available"] #app-version-indicator { background: #ce8cff; box-shadow: 0 0 9px #b585f6; }
 [data-update-state="error"] #app-version-indicator { background: #efaa86; }
-@media (max-width: 1050px) {
-  body:not(.is-files-view) .lab-version-name { display: none; }
-}
-@media (max-width: 550px) {
-  body:not(.is-files-view) .lab-topbar .lab-search-wrap { flex-basis: calc(100% - 90px); }
-  body:not(.is-files-view) .sbbh-view .sbbh-toolbar { top: 130px; }
-}
 .lab-updates {
   width: min(610px, calc(100vw - 30px));
   max-height: calc(100vh - 36px);

@@ -11,26 +11,34 @@
   <div id="map-root" class="view-content"></div>
 
   <div class="lab-topbar">
-    <button id="app-version" class="sbbh-toolbar-button lab-version" type="button" title="Ouvrir les mises à jour et les nouveautés">
-      <span class="lab-version-name">Second Brain</span><span id="app-version-value">…</span>
-      <span id="app-version-indicator" aria-hidden="true"></span>
-    </button>
-    <nav class="lab-views" aria-label="Vue du dossier">
-      <button id="view-graph" class="sbbh-toolbar-button lab-view-tab" type="button" aria-pressed="true">Graphe</button>
-      <button id="view-files" class="sbbh-toolbar-button lab-view-tab" type="button" aria-pressed="false">Fichiers</button>
-    </nav>
+    <div class="lab-navigation">
+      <button id="app-version" class="sbbh-toolbar-button lab-version" type="button" title="Ouvrir les mises à jour et les nouveautés">
+        <span class="lab-version-name">Second Brain</span><span id="app-version-value">…</span>
+        <span id="app-version-indicator" aria-hidden="true"></span>
+      </button>
+      <nav class="lab-views" aria-label="Vue du dossier">
+        <button id="view-graph" class="sbbh-toolbar-button lab-view-tab" type="button" aria-pressed="true">Graphe</button>
+        <button id="view-files" class="sbbh-toolbar-button lab-view-tab" type="button" aria-pressed="false">Fichiers</button>
+      </nav>
+      <div class="lab-folder-actions">
+        <button id="btn-new" class="sbbh-toolbar-button" type="button">+ Nouveau</button>
+        <button id="btn-link-stars" class="sbbh-toolbar-button lab-graph-only" type="button" aria-pressed="false">Relier</button>
+        <button id="btn-vault" class="sbbh-toolbar-button" type="button" title="Changer le dossier analysé">Dossier</button>
+      </div>
+    </div>
     <div class="lab-search-wrap">
-      <input id="lab-search" type="text" placeholder="Rechercher un code ou une note... (Ctrl+K)" autocomplete="off" />
+      <input id="lab-search" type="text" aria-label="Rechercher un code ou une note" title="Rechercher (Ctrl+K)" placeholder="Rechercher un code ou une note…" autocomplete="off" />
       <div id="lab-search-results" class="lab-search-results" hidden></div>
     </div>
+    <div class="lab-shortcuts">
+      <button id="btn-new-site" class="sbbh-toolbar-button" type="button">+ Site Web</button>
+      <button id="btn-new-arduino" class="sbbh-toolbar-button" type="button">+ Arduino</button>
+      <button id="btn-reload" class="sbbh-toolbar-button" type="button" title="Rescanner les fichiers" aria-label="Rescanner les fichiers">↻</button>
+    </div>
+  </div>
+  <div class="lab-graph-controls lab-graph-only" role="group" aria-label="Affichage du graphe">
     <button id="btn-lite" class="sbbh-toolbar-button lab-graph-only" type="button" title="Basculer entre Trou Noir WebGL2 et Mode Ultra-Léger 2D">⚡ Eco</button>
     <button id="btn-eco" class="sbbh-toolbar-button lab-graph-only" type="button" title="Mettre en pause l'animation">⏸ 3D</button>
-    <button id="btn-new" class="sbbh-toolbar-button" type="button">+ Nouveau</button>
-    <button id="btn-new-site" class="sbbh-toolbar-button" type="button">+ Site Web</button>
-    <button id="btn-new-arduino" class="sbbh-toolbar-button" type="button">+ Arduino</button>
-    <button id="btn-link-stars" class="sbbh-toolbar-button lab-graph-only" type="button" aria-pressed="false">Relier</button>
-    <button id="btn-vault" class="sbbh-toolbar-button" type="button" title="Changer le dossier analysé">Dossier</button>
-    <button id="btn-reload" class="sbbh-toolbar-button" type="button" title="Rescanner les fichiers">↻</button>
   </div>
   <div id="link-stars-status" class="lab-link-status" role="status" hidden></div>
 
@@ -117,48 +125,47 @@
         <footer id="schematic-status" class="lab-schematic-status" role="status"></footer>
         <ul id="schematic-diagnostics" class="lab-schematic-diagnostics" aria-label="Vérification du câblage" hidden></ul>
       </section>
-    </div>
-
-    <div id="studio-console" class="lab-console">
-      <div id="arduino-console-controls" class="lab-arduino-console-controls" hidden>
-        <nav class="lab-console-tabs" aria-label="Console Arduino">
-          <button id="arduino-build-tab" type="button" class="lab-btn" aria-pressed="true">Compilation</button>
-          <button id="arduino-serial-tab" type="button" class="lab-btn" aria-pressed="false">Série</button>
-        </nav>
-        <div class="lab-serial-port-picker">
-          <label for="arduino-port">Port</label>
-          <select id="arduino-port" class="lab-control"><option value="">Choisir un port</option></select>
-          <button id="arduino-refresh-ports" type="button" class="lab-btn" aria-label="Actualiser les ports" title="Actualiser les ports">↻</button>
+      <div id="studio-console" class="lab-console">
+        <div id="arduino-console-controls" class="lab-arduino-console-controls" hidden>
+          <nav class="lab-console-tabs" aria-label="Console Arduino">
+            <button id="arduino-build-tab" type="button" class="lab-btn" aria-pressed="true">Compilation</button>
+            <button id="arduino-serial-tab" type="button" class="lab-btn" aria-pressed="false">Série</button>
+          </nav>
+          <div class="lab-serial-port-picker">
+            <label for="arduino-port">Port</label>
+            <select id="arduino-port" class="lab-control"><option value="">Choisir un port</option></select>
+            <button id="arduino-refresh-ports" type="button" class="lab-btn" aria-label="Actualiser les ports" title="Actualiser les ports">↻</button>
+          </div>
         </div>
-      </div>
-      <div id="studio-console-heading" class="lab-console-header">
-        <span id="console-title">Console Python</span>
-        <span id="console-status" class="lab-console-status">Prêt</span>
-      </div>
-      <pre id="console-output" class="lab-console-output"></pre>
-      <section id="arduino-serial-panel" class="lab-serial-panel" aria-label="Moniteur série" hidden>
-        <div class="lab-serial-status-row">
-          <label for="arduino-baud">Débit</label>
-          <select id="arduino-baud" class="lab-control">
-            <option>300</option><option>1200</option><option>2400</option><option>4800</option><option selected>9600</option>
-            <option>19200</option><option>38400</option><option>57600</option><option>115200</option><option>230400</option>
-          </select>
-          <button id="arduino-serial-connect" type="button" class="lab-btn">Connecter</button>
-          <button id="arduino-serial-clear" type="button" class="lab-btn">Effacer</button>
-          <span id="arduino-serial-status" role="status"></span>
+        <div id="studio-console-heading" class="lab-console-header">
+          <span id="console-title">Console Python</span>
+          <span id="console-status" class="lab-console-status">Prêt</span>
         </div>
-        <pre id="arduino-serial-output" class="lab-console-output" aria-label="Données série reçues"></pre>
-        <form id="arduino-serial-form" class="lab-serial-send">
-          <input id="arduino-serial-input" class="lab-control" aria-label="Message série" placeholder="Envoyer au port série…" maxlength="1000" />
-          <select id="arduino-serial-ending" class="lab-control" aria-label="Fin de ligne">
-            <option value="none">Aucune fin de ligne</option>
-            <option value="lf" selected>Nouvelle ligne (LF)</option>
-            <option value="cr">Retour chariot (CR)</option>
-            <option value="crlf">CR + LF</option>
-          </select>
-          <button id="arduino-serial-send" type="submit" class="lab-btn lab-btn-run">Envoyer</button>
-        </form>
-      </section>
+        <pre id="console-output" class="lab-console-output"></pre>
+        <section id="arduino-serial-panel" class="lab-serial-panel" aria-label="Moniteur série" hidden>
+          <div class="lab-serial-status-row">
+            <label for="arduino-baud">Débit</label>
+            <select id="arduino-baud" class="lab-control">
+              <option>300</option><option>1200</option><option>2400</option><option>4800</option><option selected>9600</option>
+              <option>19200</option><option>38400</option><option>57600</option><option>115200</option><option>230400</option>
+            </select>
+            <button id="arduino-serial-connect" type="button" class="lab-btn">Connecter</button>
+            <button id="arduino-serial-clear" type="button" class="lab-btn">Effacer</button>
+            <span id="arduino-serial-status" role="status"></span>
+          </div>
+          <pre id="arduino-serial-output" class="lab-console-output" aria-label="Données série reçues"></pre>
+          <form id="arduino-serial-form" class="lab-serial-send">
+            <input id="arduino-serial-input" class="lab-control" aria-label="Message série" placeholder="Envoyer au port série…" maxlength="1000" />
+            <select id="arduino-serial-ending" class="lab-control" aria-label="Fin de ligne">
+              <option value="none">Aucune fin de ligne</option>
+              <option value="lf" selected>Nouvelle ligne (LF)</option>
+              <option value="cr">Retour chariot (CR)</option>
+              <option value="crlf">CR + LF</option>
+            </select>
+            <button id="arduino-serial-send" type="submit" class="lab-btn lab-btn-run">Envoyer</button>
+          </form>
+        </section>
+      </div>
     </div>
   </aside>
 
