@@ -101,6 +101,10 @@
   });
   check.onclick = checkUpdates;
   function readyToRestart() {
+    if (ArduinoSchematic.hasUnsavedChanges) {
+      showState("available", "Enregistre ton schéma Arduino avant l’installation.");
+      return false;
+    }
     if (!hasUnsavedDocuments() && !fileOperation && !graphLinkPending && !pythonRunning && !arduinoCompiling) return true;
     showState("available", "Enregistre tes fichiers et termine les exécutions avant l’installation.");
     return false;

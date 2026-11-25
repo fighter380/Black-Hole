@@ -493,9 +493,10 @@ function hasUnsavedDocuments() {
 
 function trackEditorContent(text) {
   const doc = activeDocument();
-  if (!doc) return;
+  if (!doc || text === doc.text) return;
   const wasDirty = isDirty(doc);
   doc.text = text;
+  ArduinoSchematic.sourceChanged();
   if (wasDirty !== isDirty(doc)) updateTabDirtyState(doc);
 }
 
@@ -603,6 +604,12 @@ function findArduinoSketch(filePath) {
     if (!parts.length) return null;
     parts.pop();
   }
+}
+
+function currentArduinoTarget() {
+  if (drawer.hidden || !ARDUINO_EXTENSIONS.has(currentFile?.ext)) return null;
+  const sketchPath = findArduinoSketch(currentFile.path);
+  return sketchPath === null ? null : { vaultPath, sketchPath };
 }
 
 function arduinoHeaders(filePath) {
@@ -723,6 +730,7 @@ function configureStudio() {
   btnArduinoCli.hidden = !isArduino;
   btnArduinoUpload.hidden = !isArduino;
   btnArduinoSchematic.hidden = !isArduino;
+  if (ArduinoSchematic.isOpen && !ArduinoSchematic.matches(currentArduinoTarget())) ArduinoSchematic.hide();
   editorHost.hidden = isWeb || isArduino;
   codeMirrorEditorHost.hidden = !isWeb && !isArduino;
   studioConsole.hidden = isWeb;
@@ -901,6 +909,7 @@ function showStudio() {
 
 function closeDrawer() {
   fileOpenRequest++;
+  if (ArduinoSchematic.isOpen) ArduinoSchematic.hide();
   stopWebPreview();
   hideAutocomplete();
   drawer.hidden = true;
@@ -957,7 +966,7 @@ function extractRunnablePython(text, ext) {
   return blocks.length ? blocks.join("\n\n") : text;
 }
 
-async function compileArduino(doc, upload = false) {
+async function compileArduino(doc, { upload = false, simulation = false } = {}) {
   if (arduinoCompiling || fileOperation) return;
   if (upload && !arduinoSerial.canUpload()) return;
   const sketchPath = findArduinoSketch(doc.file.path);
@@ -967,6 +976,7 @@ async function compileArduino(doc, upload = false) {
   }
 
   const root = vaultPath;
+  if (activeDocument() === doc) trackEditorContent(activeEditorContent());
   const port = upload ? arduinoSerial.selectedPort() : null;
   const parameters = {
     vaultPath: root,
@@ -990,7 +1000,7 @@ async function compileArduino(doc, upload = false) {
     } finally {
       fileOperation = false;
     }
-    const result = await invoke("compile_arduino", parameters);
+    const result = await invoke("compile_arduino", { ...parameters, withFirmware: simulation });
     const output = result => [result.stdout.trim(), result.stderr.trim()].filter(Boolean).join("\n");
     const text = output(result);
     const ok = result.exit_code === 0;
@@ -1003,10 +1013,10 @@ async function compileArduino(doc, upload = false) {
         flashedOk ? `Téléversé sur ${port}` : `Échec du téléversement sur ${port}`, !flashedOk);
       return;
     }
-    const compiled = [text, "Ouvre Schéma → Compiler et simuler pour vérifier les LED."].filter(Boolean).join("\n\n");
+    const compiled = simulation ? text : [text, "Ouvre Schéma → Compiler et simuler pour vérifier les LED."].filter(Boolean).join("\n\n");
     setDocumentConsole(doc, ok ? compiled : text || `Arduino CLI a renvoyé le code ${result.exit_code}.`,
       `${ok ? "Compilé" : "Échec"} · ${result.duration_ms} ms`, !ok);
-    return ok;
+    return ok ? result : undefined;
   } catch (err) {
     setDocumentConsole(doc, String(err), "Échec", true);
   } finally {
@@ -1402,8 +1412,9 @@ btnEco.onclick = () => {
 };
 
 btnLite.onclick = () => {
-  if (fileOperation) return;
-  if (hasUnsavedDocuments() && !confirm("Changer de mode graphique sans enregistrer les modifications ?")) return;
+  if (fileOperation || ArduinoSchematic.isSaving) return;
+  if ((hasUnsavedDocuments() || ArduinoSchematic.hasUnsavedChanges) &&
+      !confirm("Changer de mode graphique sans enregistrer les modifications ?")) return;
   liteMode = !liteMode;
   localStorage.setItem("sbbh_lite_mode", liteMode ? "1" : "0");
   location.reload();
@@ -1437,27 +1448,31 @@ btnArduinoCli.onclick = () => openModal(
 );
 btnArduinoUpload.onclick = () => {
   const doc = activeDocument();
-  if (doc && ARDUINO_EXTENSIONS.has(doc.file.ext)) compileArduino(doc, true);
+  if (doc && ARDUINO_EXTENSIONS.has(doc.file.ext)) compileArduino(doc, { upload: true });
 };
 btnArduinoSchematic.onclick = async () => {
-  const doc = activeDocument();
-  const sketchPath = findArduinoSketch(currentFile.path);
-  if (sketchPath === null) {
+  const target = currentArduinoTarget();
+  if (!target) {
     alert("Ouvre un fichier appartenant à un croquis Arduino.");
     return;
   }
+  if (ArduinoSchematic.isOpen) {
+    ArduinoSchematic.hide();
+    return;
+  }
+  const stillActive = () => {
+    const active = currentArduinoTarget();
+    return active?.vaultPath === target.vaultPath && active?.sketchPath === target.sketchPath;
+  };
   try {
-    const root = vaultPath;
-    const name = (sketchPath || root).split(/[\\/]+/).filter(Boolean).pop();
-    await ArduinoSchematic.open({ sketchPath, vaultPath: root }, async () => {
+    await ArduinoSchematic.open(target, async () => {
       if (arduinoCompiling || fileOperation) throw new Error("Une opération Arduino est déjà en cours.");
-      if (root !== vaultPath || findArduinoSketch(doc.file.path) !== sketchPath) {
-        throw new Error("Le croquis a changé. Rouvre son schéma.");
-      }
-      if (!await compileArduino(doc)) throw new Error(doc.console?.text || "La compilation a échoué.");
-      const relPath = [sketchPath, ".build", `${name}.ino.hex`].filter(Boolean).join("/");
-      return invoke("read_file", { vaultPath: root, relPath });
-    });
+      const doc = activeDocument();
+      if (!doc || !stillActive()) throw new Error("Ouvre un fichier du croquis affiché.");
+      const result = await compileArduino(doc, { simulation: true });
+      if (!result?.firmware) throw new Error(doc.console?.text || "La compilation n’a pas produit de firmware.");
+      return result.firmware;
+    }, stillActive);
   } catch (error) {
     alert(String(error));
   }
@@ -1520,14 +1535,16 @@ document.getElementById("btn-vault").onclick = () => {
     vaultPath,
     async (newPath) => {
       if (newPath === vaultPath) return;
-      if (fileOperation) return;
-      if (hasUnsavedDocuments() && !confirm("Changer de dossier sans enregistrer les modifications ?")) return;
+      if (fileOperation || ArduinoSchematic.isSaving) return;
+      if ((hasUnsavedDocuments() || ArduinoSchematic.hasUnsavedChanges) &&
+          !confirm("Changer de dossier sans enregistrer les modifications ?")) return;
       fileOperation = true;
       fileOpenRequest++;
       try {
         await invoke("scan_vault", { vaultPath: newPath });
         finishGraphLinkMode();
         closeDrawer();
+        ArduinoSchematic.reset();
         currentFile = null;
         clearCodeMirrorEditor();
         openDocuments.clear();
@@ -1590,7 +1607,7 @@ document.addEventListener("click", (e) => {
 });
 
 window.addEventListener("keydown", (e) => {
-  if (!document.getElementById("lab-modal").hidden || colorDialog.open || ArduinoSchematic.isOpen
+  if (e.defaultPrevented || !document.getElementById("lab-modal").hidden || colorDialog.open
       || document.getElementById("updates-dialog").open) return;
   if (e.key === "F2" && !drawer.hidden) {
     e.preventDefault();

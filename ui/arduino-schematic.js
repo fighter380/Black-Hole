@@ -3,7 +3,8 @@
 (() => {
   const { invoke } = window.__TAURI__.core;
   const el = id => document.getElementById(id);
-  const dialog = el("schematic-dialog");
+  const panel = el("arduino-schematic");
+  const toggle = el("btn-arduino-schematic");
   const canvas = el("schematic-canvas");
   const notice = el("schematic-status");
   const diagnostics = el("schematic-diagnostics");
@@ -78,6 +79,7 @@
   let saving = false;
   let opening = false;
   let compiling = false;
+  let simulationRequest = 0;
   let compileFirmware;
   let worker = null;
   let lit = new Set();
@@ -206,19 +208,17 @@
       message("Simulation arrêtée.");
       return;
     }
-    if (compiling || verifyCircuit().fatal) {
-      message("Corrige le schéma avant de lancer la simulation.");
-      return;
-    }
+    if (compiling) return;
+    const request = ++simulationRequest;
     compiling = true;
     renderControls();
     message("Compilation du croquis…");
     try {
       const hex = await compileFirmware();
-      if (!dialog.open) return;
+      if (request !== simulationRequest || panel.hidden) return;
       const circuit = verifyCircuit();
       if (circuit.fatal) {
-        message("Corrige le câblage avant de lancer la simulation.");
+        message("Croquis compilé. Corrige le câblage pour lancer la simulation.");
         return;
       }
       worker = new Worker(new URL("./editor/arduino-worker.js", document.baseURI));
@@ -239,7 +239,7 @@
       worker.onerror = () => { stopSimulation(); message("Le moteur de simulation a rencontré une erreur."); };
       worker.postMessage({ hex, leds: circuit.leds, boardId: circuit.boardId });
     } catch (error) {
-      message(error.message || String(error));
+      if (request === simulationRequest && !panel.hidden) message(error.message || String(error));
     } finally {
       compiling = false;
       renderControls();
@@ -480,27 +480,43 @@
     }
   }
 
-  function closeDiagram() {
-    if (saving || compiling) return;
-    if (!dirty || confirm("Fermer le schéma sans enregistrer les modifications ?")) dialog.close();
+  function hide() {
+    simulationRequest++;
+    stopSimulation();
+    if (!panel.hidden && panel.contains(document.activeElement)) toggle.focus();
+    panel.hidden = true;
+    toggle.setAttribute("aria-expanded", "false");
   }
+
+  function show() {
+    panel.hidden = false;
+    toggle.setAttribute("aria-expanded", "true");
+    renderCanvas();
+    renderControls();
+    message(dirty ? "Modifications du schéma encore à enregistrer."
+      : "Ajoute des composants, puis clique sur deux broches pour les relier.");
+  }
+
+  function matches(target) {
+    return Boolean(project && target && project.vaultPath === target.vaultPath && project.sketchPath === target.sketchPath);
+  }
+
   save.onclick = saveDiagram;
-  dialog.addEventListener("close", stopSimulation);
-  el("schematic-close").onclick = closeDiagram;
-  dialog.addEventListener("cancel", event => {
-    event.preventDefault();
-    if (pinStart) {
-      pinStart = null;
-      renderCanvas();
-      message("Tracé du fil annulé.");
-    } else closeDiagram();
-  });
-  dialog.addEventListener("keydown", event => {
+  el("schematic-close").onclick = hide;
+  panel.addEventListener("keydown", event => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
       event.preventDefault();
       saveDiagram();
     }
     if (event.key === "Delete" && !event.target.closest("input,select")) removeSelected();
+    if (event.key === "Escape") {
+      event.preventDefault();
+      if (pinStart) {
+        pinStart = null;
+        renderCanvas();
+        message("Tracé du fil annulé.");
+      } else hide();
+    }
   });
 
   function readModel(saved) {
@@ -525,22 +541,43 @@
   }
 
   window.ArduinoSchematic = {
-    get isOpen() { return dialog.open; },
-    async open(target, loadFirmware) {
-      if (opening || dialog.open) return;
+    get isOpen() { return !panel.hidden; },
+    get hasUnsavedChanges() { return dirty || saving; },
+    get isSaving() { return saving; },
+    matches,
+    hide,
+    reset() {
+      hide();
+      project = model = compileFirmware = null;
+      dirty = false;
+    },
+    sourceChanged() {
+      if (panel.hidden || (!worker && !compiling)) return;
+      simulationRequest++;
+      stopSimulation();
+      message("Code modifié. Relance la compilation pour simuler cette version.");
+    },
+    async open(target, loadFirmware, stillActive) {
+      if (opening || saving) return;
+      if (matches(target)) {
+        compileFirmware = loadFirmware;
+        show();
+        return;
+      }
+      if (dirty && !confirm("Changer de schéma sans enregistrer les modifications du précédent ?")) return;
       opening = true;
       try {
-        model = readModel(await invoke("read_arduino_schematic", target));
+        const saved = await invoke("read_arduino_schematic", target);
+        if (!stillActive()) return;
+        model = readModel(saved);
         project = target;
         compileFirmware = loadFirmware;
         diagnostics.hidden = true;
         selected = pinStart = drag = null;
         dirty = false;
-        el("schematic-project").textContent = target.sketchPath || "Croquis courant";
-        renderCanvas();
-        renderControls();
-        message("Ajoute des composants, puis clique sur deux broches pour les relier.");
-        dialog.showModal();
+        const name = (target.sketchPath || target.vaultPath).split(/[\\/]+/).filter(Boolean).pop();
+        el("schematic-project").textContent = [target.sketchPath, `${name}.ino`].filter(Boolean).join("/");
+        show();
       } finally {
         opening = false;
       }

@@ -14,3 +14,4 @@ walkdir = "2"
 dirs = "5"
 serialport = { version = "4.10", default-features = false }
 tauri-plugin-updater = "2"
+tempfile = "3"

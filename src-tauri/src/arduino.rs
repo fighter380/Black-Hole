@@ -57,6 +57,8 @@ pub struct CompileResult {
     stderr: String,
     exit_code: i32,
     duration_ms: u128,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    firmware: Option<String>,
 }
 
 fn find_cli(cli_path: Option<String>) -> PathBuf {
@@ -136,6 +138,7 @@ fn run_cli(mut command: Command) -> Result<CompileResult, String> {
         stderr,
         exit_code: output.status.code().unwrap_or(-1),
         duration_ms: start.elapsed().as_millis(),
+        firmware: None,
     })
 }
 
@@ -144,17 +147,42 @@ pub async fn compile_arduino(
     vault_path: String,
     sketch_path: String,
     cli_path: Option<String>,
+    with_firmware: Option<bool>,
 ) -> Result<CompileResult, String> {
     tauri::async_runtime::spawn_blocking(move || {
         let folder = sketch_folder(&vault_path, &sketch_path)?;
-        let artifacts = Path::new(&sketch_path).join(".build");
-        let artifacts = vault_file(&vault_path, &artifacts.to_string_lossy())?;
+        let temporary = with_firmware
+            .unwrap_or(false)
+            .then(tempfile::tempdir)
+            .transpose()
+            .map_err(|error| format!("Dossier temporaire de compilation indisponible — {error}"))?;
+        let artifacts = match &temporary {
+            Some(dir) => dir.path().to_owned(),
+            None => {
+                let relative = Path::new(&sketch_path).join(".build");
+                vault_file(&vault_path, &relative.to_string_lossy())?
+            }
+        };
         let mut command = command_without_console(find_cli(cli_path));
         command
             .args(["compile", "--fqbn", UNO_FQBN, "--output-dir"])
-            .arg(artifacts)
-            .arg(folder);
-        run_cli(command)
+            .arg(&artifacts)
+            .arg(&folder);
+        let mut result = run_cli(command)?;
+        if temporary.is_some() && result.exit_code == 0 {
+            let name = folder.file_name().ok_or("Nom de croquis introuvable.")?;
+            let mut filename = name.to_os_string();
+            filename.push(".ino.hex");
+            result.firmware = Some(fs::read_to_string(artifacts.join(&filename)).map_err(
+                |error| {
+                    format!(
+                        "Firmware {} introuvable ou illisible — {error}",
+                        filename.to_string_lossy()
+                    )
+                },
+            )?);
+        }
+        Ok(result)
     })
     .await
     .map_err(|error| error.to_string())?

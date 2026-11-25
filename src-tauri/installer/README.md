@@ -10,7 +10,7 @@ Le canal `rolling` de [Blak-Hole](https://github.com/fighter380/Blak-Hole/releas
 
 ## Publications suivantes
 
-Un push sur `main` reconstruit l’éditeur puis l’installateur. GitHub Actions choisit une version supérieure à la version du dépôt et aux installateurs déjà déposés sur `rolling`. Il publie l’installateur et sa signature sous des noms versionnés, puis remplace `latest.json`. Les nouveautés reprennent le titre de chaque commit suivi de son SHA court, depuis le dernier build publié. Au premier build, le point de départ est le commit précédant le push, quand GitHub le fournit.
+Un push sur `main` reconstruit l’éditeur puis l’installateur. GitHub Actions choisit une version supérieure à la version du dépôt et aux installateurs déjà déposés sur `rolling`. Le titre public de la release suit la version sous la forme **Black Hole Stable v0.2.x**. Pour une installation manuelle, le lien de la release pointe vers l’installateur Windows `.exe`. Pour une mise à jour depuis l’app, `latest.json` contient le lien vers l’installateur et sa signature. Le fichier `.sig` généré pendant le build reste dans les artefacts locaux. Les nouveautés reprennent le titre de chaque commit suivi de son SHA court, depuis le dernier build publié. Au premier build, le point de départ est le commit précédant le push, quand GitHub le fournit.
 
 Pour rétablir le code d’une version saine, fais un commit de correction ou utilise `git revert` puis pousse sur `main`. La version du build de correction doit rester supérieure à celle déjà installée. Conserve au moins un installateur sain pour les cas où l’app ne démarre plus. Quand tu nettoies les anciens fichiers de la release, garde l’installateur pointé par `latest.json` et le précédent.
 

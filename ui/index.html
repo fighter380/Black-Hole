@@ -56,7 +56,7 @@
       </div>
       <div class="lab-drawer-actions">
         <button id="btn-arduino-cli" class="lab-btn" type="button" title="Configurer le chemin d’Arduino CLI" hidden>CLI Arduino</button>
-        <button id="btn-arduino-schematic" class="lab-btn" type="button" hidden>Schéma</button>
+        <button id="btn-arduino-schematic" class="lab-btn" type="button" aria-controls="arduino-schematic" aria-expanded="false" hidden>Schéma</button>
         <button id="btn-arduino-upload" class="lab-btn" type="button" hidden>Téléverser</button>
         <button id="btn-color" class="lab-btn lab-btn-color" type="button" title="Insérer ou modifier une couleur hexadécimale" hidden>Couleur</button>
         <button id="btn-run" class="lab-btn lab-btn-run" type="button" title="Exécuter Python / Tkinter (Ctrl+Entrée)">▶ Run</button>
@@ -84,6 +84,38 @@
           <span id="web-preview-status" class="lab-console-status" role="status"></span>
         </div>
         <iframe id="web-preview-frame" title="Aperçu du site" sandbox="allow-scripts" referrerpolicy="no-referrer" hidden></iframe>
+      </section>
+      <section id="arduino-schematic" hidden class="lab-schematic" aria-labelledby="schematic-title">
+        <header class="lab-schematic-header">
+          <div><h2 id="schematic-title">Schéma électrique</h2><span id="schematic-project"></span></div>
+          <div class="lab-schematic-actions">
+            <button id="schematic-verify" type="button" class="lab-btn">Vérifier le câblage</button>
+            <button id="schematic-simulate" type="button" class="lab-btn lab-btn-run">Compiler et simuler</button>
+            <button id="schematic-save" type="button" class="lab-btn lab-btn-run">Enregistrer</button>
+            <button id="schematic-close" type="button" class="lab-btn">Masquer</button>
+          </div>
+        </header>
+        <div class="lab-schematic-toolbar">
+          <select id="schematic-kind" class="lab-control" aria-label="Composant à ajouter">
+            <option value="uno">Arduino Uno</option>
+            <option value="led" selected>LED</option>
+            <option value="resistor">Résistance</option>
+            <option value="button">Bouton poussoir</option>
+            <option value="capacitor">Condensateur</option>
+            <option value="pot">Potentiomètre</option>
+            <option value="ground">Masse</option>
+          </select>
+          <button id="schematic-add" type="button" class="lab-btn">Ajouter</button>
+          <button id="schematic-rotate" type="button" class="lab-btn">Tourner ↻</button>
+          <button id="schematic-remove" type="button" class="lab-btn lab-btn-danger">Supprimer</button>
+          <label for="schematic-label">Nom / valeur</label>
+          <input id="schematic-label" class="lab-control" type="text" maxlength="40" />
+        </div>
+        <div class="lab-schematic-sheet">
+          <svg id="schematic-canvas" viewBox="0 0 1000 580" aria-label="Zone de schéma électrique"></svg>
+        </div>
+        <footer id="schematic-status" class="lab-schematic-status" role="status"></footer>
+        <ul id="schematic-diagnostics" class="lab-schematic-diagnostics" aria-label="Vérification du câblage" hidden></ul>
       </section>
     </div>
 
@@ -160,39 +192,6 @@
         <button class="lab-btn lab-btn-run" type="submit">Appliquer</button>
       </div>
     </form>
-  </dialog>
-
-  <dialog id="schematic-dialog" class="lab-schematic" aria-labelledby="schematic-title">
-    <header class="lab-schematic-header">
-      <div><h2 id="schematic-title">Schéma électrique</h2><span id="schematic-project"></span></div>
-      <div class="lab-schematic-actions">
-        <button id="schematic-verify" type="button" class="lab-btn">Vérifier le câblage</button>
-        <button id="schematic-simulate" type="button" class="lab-btn lab-btn-run">Compiler et simuler</button>
-        <button id="schematic-save" type="button" class="lab-btn lab-btn-run">Enregistrer</button>
-        <button id="schematic-close" type="button" class="lab-btn">Fermer</button>
-      </div>
-    </header>
-    <div class="lab-schematic-toolbar">
-      <select id="schematic-kind" class="lab-control" aria-label="Composant à ajouter">
-        <option value="uno">Arduino Uno</option>
-        <option value="led" selected>LED</option>
-        <option value="resistor">Résistance</option>
-        <option value="button">Bouton poussoir</option>
-        <option value="capacitor">Condensateur</option>
-        <option value="pot">Potentiomètre</option>
-        <option value="ground">Masse</option>
-      </select>
-      <button id="schematic-add" type="button" class="lab-btn">Ajouter</button>
-      <button id="schematic-rotate" type="button" class="lab-btn">Tourner ↻</button>
-      <button id="schematic-remove" type="button" class="lab-btn lab-btn-danger">Supprimer</button>
-      <label for="schematic-label">Nom / valeur</label>
-      <input id="schematic-label" class="lab-control" type="text" maxlength="40" />
-    </div>
-    <div class="lab-schematic-sheet">
-      <svg id="schematic-canvas" viewBox="0 0 1000 580" aria-label="Zone de schéma électrique"></svg>
-    </div>
-    <footer id="schematic-status" class="lab-schematic-status" role="status"></footer>
-    <ul id="schematic-diagnostics" class="lab-schematic-diagnostics" aria-label="Vérification du câblage" hidden></ul>
   </dialog>
 
   <dialog id="updates-dialog" class="lab-updates" aria-labelledby="updates-title">
