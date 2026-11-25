@@ -1003,8 +1003,10 @@ async function compileArduino(doc, upload = false) {
         flashedOk ? `Téléversé sur ${port}` : `Échec du téléversement sur ${port}`, !flashedOk);
       return;
     }
-    setDocumentConsole(doc, text || (ok ? "Croquis compilé." : `Arduino CLI a renvoyé le code ${result.exit_code}.`),
+    const compiled = [text, "Ouvre Schéma → Compiler et simuler pour vérifier les LED."].filter(Boolean).join("\n\n");
+    setDocumentConsole(doc, ok ? compiled : text || `Arduino CLI a renvoyé le code ${result.exit_code}.`,
       `${ok ? "Compilé" : "Échec"} · ${result.duration_ms} ms`, !ok);
+    return ok;
   } catch (err) {
     setDocumentConsole(doc, String(err), "Échec", true);
   } finally {
@@ -1438,13 +1440,24 @@ btnArduinoUpload.onclick = () => {
   if (doc && ARDUINO_EXTENSIONS.has(doc.file.ext)) compileArduino(doc, true);
 };
 btnArduinoSchematic.onclick = async () => {
+  const doc = activeDocument();
   const sketchPath = findArduinoSketch(currentFile.path);
   if (sketchPath === null) {
     alert("Ouvre un fichier appartenant à un croquis Arduino.");
     return;
   }
   try {
-    await ArduinoSchematic.open({ sketchPath, vaultPath });
+    const root = vaultPath;
+    const name = (sketchPath || root).split(/[\\/]+/).filter(Boolean).pop();
+    await ArduinoSchematic.open({ sketchPath, vaultPath: root }, async () => {
+      if (arduinoCompiling || fileOperation) throw new Error("Une opération Arduino est déjà en cours.");
+      if (root !== vaultPath || findArduinoSketch(doc.file.path) !== sketchPath) {
+        throw new Error("Le croquis a changé. Rouvre son schéma.");
+      }
+      if (!await compileArduino(doc)) throw new Error(doc.console?.text || "La compilation a échoué.");
+      const relPath = [sketchPath, ".build", `${name}.ino.hex`].filter(Boolean).join("/");
+      return invoke("read_file", { vaultPath: root, relPath });
+    });
   } catch (error) {
     alert(String(error));
   }

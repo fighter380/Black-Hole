@@ -166,6 +166,8 @@
     <header class="lab-schematic-header">
       <div><h2 id="schematic-title">Schéma électrique</h2><span id="schematic-project"></span></div>
       <div class="lab-schematic-actions">
+        <button id="schematic-verify" type="button" class="lab-btn">Vérifier le câblage</button>
+        <button id="schematic-simulate" type="button" class="lab-btn lab-btn-run">Compiler et simuler</button>
         <button id="schematic-save" type="button" class="lab-btn lab-btn-run">Enregistrer</button>
         <button id="schematic-close" type="button" class="lab-btn">Fermer</button>
       </div>
@@ -190,6 +192,7 @@
       <svg id="schematic-canvas" viewBox="0 0 1000 580" aria-label="Zone de schéma électrique"></svg>
     </div>
     <footer id="schematic-status" class="lab-schematic-status" role="status"></footer>
+    <ul id="schematic-diagnostics" class="lab-schematic-diagnostics" aria-label="Vérification du câblage" hidden></ul>
   </dialog>
 
   <dialog id="updates-dialog" class="lab-updates" aria-labelledby="updates-title">
@@ -216,6 +219,7 @@
   <script src="vault-explorer.js"></script>
   <script src="editor/web-editor.js"></script>
   <script src="arduino-serial.js"></script>
+  <script src="arduino-circuit.js"></script>
   <script src="arduino-schematic.js"></script>
   <script src="app.js"></script>
   <script src="updates.js"></script>

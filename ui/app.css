@@ -868,6 +868,18 @@ html, body {
   touch-action: none;
 }
 .lab-schematic-status { min-height: 34px; color: #c3b1d6; font-size: 12px; }
+.lab-schematic-status { white-space: pre-wrap; overflow: auto; max-height: 100px; }
+.lab-schematic-diagnostics {
+  max-height: 125px;
+  margin: 0;
+  padding: 7px 13px 10px 32px;
+  overflow: auto;
+  font-size: 12px;
+}
+.lab-schematic-diagnostics [data-severity="error"] { color: #ffaaa6; }
+.lab-schematic-diagnostics [data-severity="warning"] { color: #f3d194; }
+.schematic-light { fill: #352741; stroke: #896aa0; pointer-events: none; }
+.schematic-light.is-lit { fill: #ffda6e; stroke: #fff2ad; filter: drop-shadow(0 0 6px #ff9b47); }
 .schematic-part-hit { fill: #191f2c99; stroke: transparent; cursor: grab; }
 .schematic-part[data-selected="true"] .schematic-part-hit,
 .schematic-part-hit:focus { stroke: #9f6fe0; stroke-dasharray: 5 3; }

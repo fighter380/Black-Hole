@@ -16,6 +16,7 @@
   let installing = false;
 
   const releases = [
+    ["0.2.3", "Simulation Arduino", ["Vérification du câblage des LED et simulation du croquis Uno compilé."]],
     ["0.2.2", "Nouvelle icône", ["Le trou noir illustré devient l’icône de l’application et de l’installateur Windows."]],
     ["0.2.1", "Version et nouveautés", [
       "La version s’affiche en haut à gauche et donne accès aux mises à jour.",

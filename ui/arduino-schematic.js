@@ -6,6 +6,8 @@
   const dialog = el("schematic-dialog");
   const canvas = el("schematic-canvas");
   const notice = el("schematic-status");
+  const diagnostics = el("schematic-diagnostics");
+  const simulate = el("schematic-simulate");
   const editLabel = el("schematic-label");
   const save = el("schematic-save");
   const rotate = el("schematic-rotate");
@@ -75,6 +77,10 @@
   let dirty = false;
   let saving = false;
   let opening = false;
+  let compiling = false;
+  let compileFirmware;
+  let worker = null;
+  let lit = new Set();
 
   function samePin(a, b) {
     return a?.part === b?.part && a?.pin === b?.pin;
@@ -155,7 +161,90 @@
     editLabel.disabled = !part;
     editLabel.value = part?.label ?? "";
     save.disabled = saving || !dirty;
+    simulate.disabled = compiling;
+    simulate.textContent = worker ? "Arrêter la simulation" : "Compiler et simuler";
   }
+
+  function updateLights() {
+    for (const marker of canvas.querySelectorAll("[data-sim-light]")) {
+      marker.classList.toggle("is-lit", lit.has(marker.dataset.simLight));
+    }
+  }
+
+  function stopSimulation() {
+    if (!worker) return;
+    worker.terminate();
+    worker = null;
+    lit = new Set();
+    updateLights();
+    renderControls();
+  }
+
+  function verifyCircuit() {
+    const result = ArduinoCircuit.analyze(model);
+    const rows = [...result.errors.map(text => [text, "error"]), ...result.warnings.map(text => [text, "warning"])];
+    diagnostics.replaceChildren(...rows.map(([text, severity]) => {
+      const item = document.createElement("li");
+      item.dataset.severity = severity;
+      item.textContent = text;
+      return item;
+    }));
+    diagnostics.hidden = !rows.length;
+    return result;
+  }
+
+  el("schematic-verify").onclick = () => {
+    const result = verifyCircuit();
+    if (result.errors.length) message("Le câblage des LED comporte des erreurs.");
+    else if (result.leds.length) message("Aucune erreur détectée dans le câblage des LED.");
+    else message("Aucune LED externe à vérifier. Tu peux tester la LED intégrée de l’Uno.");
+  };
+
+  simulate.onclick = async () => {
+    if (worker) {
+      stopSimulation();
+      message("Simulation arrêtée.");
+      return;
+    }
+    if (compiling || verifyCircuit().fatal) {
+      message("Corrige le schéma avant de lancer la simulation.");
+      return;
+    }
+    compiling = true;
+    renderControls();
+    message("Compilation du croquis…");
+    try {
+      const hex = await compileFirmware();
+      if (!dialog.open) return;
+      const circuit = verifyCircuit();
+      if (circuit.fatal) {
+        message("Corrige le câblage avant de lancer la simulation.");
+        return;
+      }
+      worker = new Worker(new URL("./editor/arduino-worker.js", document.baseURI));
+      const current = worker;
+      worker.onmessage = ({ data }) => {
+        if (worker !== current) return;
+        if (data.type === "error") {
+          stopSimulation();
+          message(data.message);
+        } else if (data.type === "ready") {
+          message(circuit.errors.length ? "Simulation en cours. Corrige les LED signalées pour les tester."
+            : "Simulation en cours · LED intégrée sur D13.");
+        } else if (data.type === "leds") {
+          lit = new Set(data.lit);
+          updateLights();
+        }
+      };
+      worker.onerror = () => { stopSimulation(); message("Le moteur de simulation a rencontré une erreur."); };
+      worker.postMessage({ hex, leds: circuit.leds, boardId: circuit.boardId });
+    } catch (error) {
+      message(error.message || String(error));
+    } finally {
+      compiling = false;
+      renderControls();
+    }
+  };
 
   function renderCanvas() {
     const content = document.createDocumentFragment();
@@ -184,6 +273,16 @@
       const artwork = svg("g", { class: "schematic-symbol" });
       artwork.innerHTML = type.symbol;
       symbol.append(hit, artwork);
+      if (part.kind === "uno" || part.kind === "led") {
+        const onboard = part.kind === "uno";
+        symbol.append(svg("circle", { cx: onboard ? 62 : 0, cy: onboard ? -70 : 0,
+          r: onboard ? 5 : 10, class: "schematic-light", "data-sim-light": part.id }));
+        if (onboard) {
+          const ledLabel = svg("text", { x: 62, y: -56, class: "schematic-part-label" });
+          ledLabel.textContent = "L";
+          symbol.append(ledLabel);
+        }
+      }
       for (const terminal of type.pins) {
         const label = `${part.label || type.title} · ${terminal.name}`;
         const endpoint = { part: part.id, pin: terminal.name };
@@ -209,6 +308,7 @@
       content.append(group);
     }
     canvas.replaceChildren(content);
+    updateLights();
   }
 
   function select(type, id) {
@@ -219,6 +319,11 @@
 
   function changed(text) {
     dirty = true;
+    if (worker) {
+      stopSimulation();
+      text += " Relance la simulation pour tester le nouveau câblage.";
+    }
+    diagnostics.hidden = true;
     renderCanvas();
     renderControls();
     message(text);
@@ -376,10 +481,11 @@
   }
 
   function closeDiagram() {
-    if (saving) return;
+    if (saving || compiling) return;
     if (!dirty || confirm("Fermer le schéma sans enregistrer les modifications ?")) dialog.close();
   }
   save.onclick = saveDiagram;
+  dialog.addEventListener("close", stopSimulation);
   el("schematic-close").onclick = closeDiagram;
   dialog.addEventListener("cancel", event => {
     event.preventDefault();
@@ -420,12 +526,14 @@
 
   window.ArduinoSchematic = {
     get isOpen() { return dialog.open; },
-    async open(target) {
+    async open(target, loadFirmware) {
       if (opening || dialog.open) return;
       opening = true;
       try {
         model = readModel(await invoke("read_arduino_schematic", target));
         project = target;
+        compileFirmware = loadFirmware;
+        diagnostics.hidden = true;
         selected = pinStart = drag = null;
         dirty = false;
         el("schematic-project").textContent = target.sketchPath || "Croquis courant";

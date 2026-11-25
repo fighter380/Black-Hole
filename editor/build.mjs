@@ -22,7 +22,7 @@ await includeLib("lib.es2022.full.d.ts");
 
 const result = await build({
   absWorkingDir: root,
-  entryPoints: ["editor/web-editor.js", "editor/javascript-worker.js"],
+  entryPoints: ["editor/web-editor.js", "editor/javascript-worker.js", "editor/arduino-worker.js"],
   outdir: "ui/editor",
   bundle: true,
   format: "iife",
