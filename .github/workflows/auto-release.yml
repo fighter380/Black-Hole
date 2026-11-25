@@ -1,0 +1,81 @@
+name: Auto Release on Push
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "**.md"
+      - ".gitignore"
+
+# Si tu push plusieurs fois vite, annule l'ancien build pour ne garder que le dernier
+concurrency:
+  group: auto-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-release:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest
+          - platform: ubuntu-22.04
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Installer Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Incrémenter la version automatiquement (sans modifier ton Git local)
+        id: bump
+        shell: bash
+        run: |
+          node -e '
+            const fs = require("fs");
+            const run = process.env.GITHUB_RUN_NUMBER;
+            const confPath = "src-tauri/tauri.conf.json";
+            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"));
+            const [maj, min] = String(conf.version || "0.2.0").split(".");
+            const nextVer = `${maj}.${min}.${run}`;
+            conf.version = nextVer;
+            fs.writeFileSync(confPath, JSON.stringify(conf, null, 2));
+
+            const cargoPath = "src-tauri/Cargo.toml";
+            let cargo = fs.readFileSync(cargoPath, "utf8");
+            cargo = cargo.replace(/^version\s*=\s*"[^"]+"/m, `version = "${nextVer}"`);
+            fs.writeFileSync(cargoPath, cargo);
+            console.log("Version compilée :", nextVer);
+          '
+
+      - name: Builder le bundle éditeur (si script présent)
+        run: |
+          npm ci
+          npm run build --if-present
+
+      - name: Dépendances Linux (Tauri v2)
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libudev-dev
+
+      - name: Installer Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Compiler Tauri et publier la Release automatiquement
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: v__VERSION__
+          releaseName: "Black Hole v__VERSION__"
+          releaseBody: "Build automatique depuis le dernier push sur main."
+          releaseDraft: false
+          prerelease: false
