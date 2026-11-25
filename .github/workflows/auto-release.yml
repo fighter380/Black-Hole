@@ -76,6 +76,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         if: steps.previous.outputs.already_published != 'True'
 
+      - name: Mettre en cache les dépendances Rust
+        if: steps.previous.outputs.already_published != 'True'
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          workspaces: src-tauri -> target
+          cache-bin: 'false'
+
       - name: Installer la CLI Tauri
         if: steps.previous.outputs.already_published != 'True'
         run: npm exec --yes --package=@tauri-apps/cli@2.12.6 -- tauri --version
@@ -114,7 +121,7 @@ jobs:
           $title = "Black Hole Stable v$env:VERSION"
           $notes = "[Télécharger Black Hole pour Windows x64]($downloadUrl)`n`nLes utilisateurs de Black Hole peuvent installer cette version depuis le panneau Mises à jour."
           $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
-          Invoke-RestMethod "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" -Headers $headers -SkipHttpErrorCheck -StatusCodeVariable status | Out-Null
+          $release = Invoke-RestMethod "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" -Headers $headers -SkipHttpErrorCheck -StatusCodeVariable status
           if ($status -eq 404) {
             gh release create $tag $installer $manifest --target $env:GITHUB_SHA --title $title --notes $notes --latest --repo $env:GITHUB_REPOSITORY
             exit $LASTEXITCODE
@@ -126,4 +133,14 @@ jobs:
           gh release edit $tag --title $title --notes $notes --latest --repo $env:GITHUB_REPOSITORY
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           gh release upload $tag $manifest --clobber --repo $env:GITHUB_REPOSITORY
-          exit $LASTEXITCODE
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          # Keep the previous installer available until its replacement is published.
+          foreach ($asset in $release.assets) {
+            if ($asset.name -match '^Black-Hole_(\d+\.\d+\.\d+)_x64-setup\.exe(\.sig)?$' -and
+                [version]$Matches[1] -lt [version]$env:VERSION) {
+              gh release delete-asset $tag $asset.name --yes --repo $env:GITHUB_REPOSITORY
+              if ($LASTEXITCODE -ne 0) { Write-Warning "Ancien fichier encore présent sur rolling : $($asset.name)" }
+            }
+          }
+          exit 0

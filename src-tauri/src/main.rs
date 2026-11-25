@@ -191,7 +191,18 @@ const EDITABLE_EXTENSIONS: &[&str] = &[
     "hpp", "c",
 ];
 const GRAPH_LINKS_FILE: &str = ".sbbh-links.json";
-type GraphLinks = Vec<[String; 2]>;
+#[derive(Clone, Default, Serialize, serde::Deserialize)]
+struct GraphLinks {
+    manual: Vec<[String; 2]>,
+    hidden: Vec<[String; 2]>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(untagged)]
+enum StoredGraphLinks {
+    Current(GraphLinks),
+    Legacy(Vec<[String; 2]>),
+}
 static GRAPH_LINKS_LOCK: Mutex<()> = Mutex::new(());
 
 fn vault_entries(root: &Path) -> impl Iterator<Item = DirEntry> {
@@ -428,8 +439,10 @@ fn delete_file(vault_path: String, rel_path: String) -> Result<(), String> {
     if full.exists() {
         let links = read_graph_links(&vault_path)?;
         let mut remaining = links.clone();
-        remaining.retain(|pair| !pair.contains(&rel_path));
-        let changed = remaining.len() != links.len();
+        remaining.manual.retain(|pair| !pair.contains(&rel_path));
+        remaining.hidden.retain(|pair| !pair.contains(&rel_path));
+        let changed = remaining.manual.len() != links.manual.len()
+            || remaining.hidden.len() != links.hidden.len();
         if changed {
             write_graph_links(&vault_path, &remaining)?;
         }
@@ -446,8 +459,16 @@ fn delete_file(vault_path: String, rel_path: String) -> Result<(), String> {
 fn read_graph_links(vault_path: &str) -> Result<GraphLinks, String> {
     let path = vault_file(vault_path, GRAPH_LINKS_FILE)?;
     match fs::read_to_string(path) {
-        Ok(json) => serde_json::from_str(&json).map_err(|e| format!("Liens de la carte — {e}")),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(Vec::new()),
+        Ok(json) => {
+            match serde_json::from_str(&json).map_err(|e| format!("Liens de la carte — {e}"))? {
+                StoredGraphLinks::Current(links) => Ok(links),
+                StoredGraphLinks::Legacy(manual) => Ok(GraphLinks {
+                    manual,
+                    hidden: Vec::new(),
+                }),
+            }
+        }
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(GraphLinks::default()),
         Err(error) => Err(format!("Liens de la carte — {error}")),
     }
 }
@@ -493,17 +514,20 @@ fn set_graph_link(
     let mut pair = [source, target];
     pair.sort();
     let mut links = read_graph_links(&vault_path)?;
-    if linked {
-        if !links.contains(&pair) {
-            links.push(pair);
-            write_graph_links(&vault_path, &links)?;
-        }
+    let (visible, removed) = if linked {
+        (&mut links.manual, &mut links.hidden)
     } else {
-        let count = links.len();
-        links.retain(|link| *link != pair);
-        if count != links.len() {
-            write_graph_links(&vault_path, &links)?;
-        }
+        (&mut links.hidden, &mut links.manual)
+    };
+    let count = removed.len();
+    removed.retain(|link| link != &pair);
+    let mut changed = count != removed.len();
+    if !visible.contains(&pair) {
+        visible.push(pair);
+        changed = true;
+    }
+    if changed {
+        write_graph_links(&vault_path, &links)?;
     }
     Ok(links)
 }
@@ -539,14 +563,19 @@ fn rename_file(vault_path: String, rel_path: String, new_stem: String) -> Result
         let _lock = GRAPH_LINKS_LOCK.lock().map_err(|e| e.to_string())?;
         let mut links = read_graph_links(&vault_path)?;
         let mut changed = false;
-        for pair in &mut links {
-            for endpoint in pair.iter_mut() {
-                if *endpoint == rel_path {
-                    *endpoint = new_path.clone();
-                    changed = true;
+        for pairs in [&mut links.manual, &mut links.hidden] {
+            for pair in pairs.iter_mut() {
+                for endpoint in pair.iter_mut() {
+                    if *endpoint == rel_path {
+                        *endpoint = new_path.clone();
+                        changed = true;
+                    }
                 }
+                pair.sort();
             }
-            pair.sort();
+            pairs.retain(|pair| pair[0] != pair[1]);
+            pairs.sort();
+            pairs.dedup();
         }
         rename_without_replacing(&source, &destination).map_err(|error| {
             if error.kind() == io::ErrorKind::AlreadyExists {
@@ -556,9 +585,6 @@ fn rename_file(vault_path: String, rel_path: String, new_stem: String) -> Result
             }
         })?;
         if changed {
-            links.retain(|pair| pair[0] != pair[1]);
-            links.sort();
-            links.dedup();
             if let Err(error) = write_graph_links(&vault_path, &links) {
                 return match rename_without_replacing(&destination, &source) {
                     Ok(()) => Err(error),

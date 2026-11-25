@@ -436,7 +436,7 @@ let graphLinkSource = null;
 let graphLinkPending = false;
 let graphLinkTimer;
 let graphManualLinks = new Map();
-let savedGraphLinks = [];
+let savedGraphLinks = { manual: [], hidden: [] };
 let graphLinksRevision = 0;
 
 const drawer = document.getElementById("code-drawer");
@@ -791,7 +791,7 @@ function finishGraphLinkMode(message = "") {
 
 function selectGraphLinkSource(file) {
   graphLinkSource = file;
-  updateGraphLinkStatus(`${file.path} sélectionné. Clique sur une autre étoile pour relier les fichiers ou retirer leur lien.`);
+  updateGraphLinkStatus(`${file.path} sélectionné. Choisis le second fichier. Si un lien existe déjà, il sera retiré du graphe.`);
   activeView?.map?.resize();
 }
 
@@ -809,11 +809,7 @@ async function activateGraphFile(file) {
     updateGraphLinkStatus("Choisis une autre étoile pour terminer le lien.");
     return;
   }
-  const linked = !isManualGraphLink(source, target);
-  if (linked && (resolvedLinksMap[source]?.[target] || resolvedLinksMap[target]?.[source])) {
-    finishGraphLinkMode("Ces deux fichiers sont déjà reliés par leur contenu.");
-    return;
-  }
+  const linked = !(resolvedLinksMap[source]?.[target] || resolvedLinksMap[target]?.[source]);
 
   graphLinkPending = true;
   btnLinkStars.disabled = true;
@@ -1302,7 +1298,7 @@ async function reloadVault() {
     invoke("scan_vault", { vaultPath: root }),
     invoke("list_graph_links", { vaultPath: root }).catch(err => {
       if (root === vaultPath) updateGraphLinkStatus(String(err), true);
-      return [];
+      return savedGraphLinks;
     }),
     invoke("list_vault_folders", { vaultPath: root }),
   ]);
@@ -1353,13 +1349,17 @@ function refreshVaultGraph(links) {
   }
 
   graphManualLinks = new Map();
-  for (const [source, target] of links) {
+  for (const [source, target] of links.manual) {
     if (source !== target && fileCacheMap.has(source) && fileCacheMap.has(target)) {
       const [first, second] = source < target ? [source, target] : [target, source];
       if (!graphManualLinks.has(first)) graphManualLinks.set(first, new Set());
       graphManualLinks.get(first).add(second);
       resolvedLinksMap[source][target] = 1;
     }
+  }
+  for (const [source, target] of links.hidden) {
+    if (resolvedLinksMap[source]) delete resolvedLinksMap[source][target];
+    if (resolvedLinksMap[target]) delete resolvedLinksMap[target][source];
   }
   vaultEmitter.trigger("create");
   if (activeView) activeView.refresh();
@@ -1430,7 +1430,7 @@ btnLinkStars.onclick = () => {
   if (openFile) closeDrawer();
   graphLinkMode = true;
   btnLinkStars.setAttribute("aria-pressed", "true");
-  updateGraphLinkStatus("Clique sur la première étoile, ou choisis un fichier dans la recherche.");
+  updateGraphLinkStatus("Pour relier ou délier deux fichiers, choisis la première étoile ou utilise la recherche.");
   syncMapMotion();
   if (openFile) selectGraphLinkSource(openFile);
 };
@@ -1548,6 +1548,7 @@ document.getElementById("btn-vault").onclick = () => {
         currentFile = null;
         clearCodeMirrorEditor();
         openDocuments.clear();
+        savedGraphLinks = { manual: [], hidden: [] };
         renderOpenTabs();
         vaultPath = newPath;
         localStorage.setItem("sbbh_vault_path", vaultPath);
