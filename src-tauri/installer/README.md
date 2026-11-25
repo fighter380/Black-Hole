@@ -1,11 +1,29 @@
-# Publication des mises à jour
+# Publication des mises à jour Windows
 
-La compilation ordinaire produit un installateur manuel. Pour une distribution avec mises à jour, configure `SBBH_UPDATE_ENDPOINT` avec l’URL HTTPS du manifeste et `SBBH_UPDATE_PUBKEY` avec le contenu de la clé publique Tauri, avant de compiler. Conserve la clé privée en lieu sûr et fournis-la au processus de signature avec `TAURI_SIGNING_PRIVATE_KEY`. Fournis `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` si la clé est protégée.
+Le canal `rolling` de [Blak-Hole](https://github.com/fighter380/Blak-Hole/releases) reçoit les installateurs et leur manifeste. Chaque build embarque les mêmes messages de commit que le manifeste. L’application vérifie la signature et le numéro de version signé avant de lancer l’installation.
+
+## Première activation
+
+1. Dans les [secrets GitHub Actions du dépôt](https://github.com/fighter380/Blak-Hole/settings/secrets/actions), ajoute `TAURI_SIGNING_PRIVATE_KEY` avec le contenu de `%USERPROFILE%\.tauri\black-hole.key`. Ajoute `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` si la clé est protégée. Conserve une sauvegarde privée de la clé et garde-la hors du dépôt et des releases.
+2. Pousse le workflow et les sources sur `main`. Le workflow crée la release publique `rolling` au premier build réussi. Cette release doit rester modifiable.
+3. Installe une première fois une version compatible avec ce canal depuis son installateur NSIS x64. Le premier build local compatible est 0.2.5. L’app propose ensuite les versions supérieures dans son panneau **Mises à jour**, avec téléchargement, installation silencieuse et relance depuis Black Hole.
+
+## Publications suivantes
+
+Un push sur `main` reconstruit l’éditeur puis l’installateur. GitHub Actions choisit une version supérieure à la version du dépôt et aux installateurs déjà déposés sur `rolling`. Il publie l’installateur et sa signature sous des noms versionnés, puis remplace `latest.json`. Les nouveautés reprennent le titre de chaque commit suivi de son SHA court, depuis le dernier build publié. Au premier build, le point de départ est le commit précédant le push, quand GitHub le fournit.
+
+Pour rétablir le code d’une version saine, fais un commit de correction ou utilise `git revert` puis pousse sur `main`. La version du build de correction doit rester supérieure à celle déjà installée. Conserve au moins un installateur sain pour les cas où l’app ne démarre plus. Quand tu nettoies les anciens fichiers de la release, garde l’installateur pointé par `latest.json` et le précédent.
+
+## Build local signé
+
+Depuis la racine du dépôt, lance ces commandes. Le script utilise la clé locale par défaut. Tu peux lui passer `-KeyPath` ou définir `TAURI_SIGNING_PRIVATE_KEY` pour utiliser une autre copie de la même clé. Avec `-BaseCommit`, indique le SHA à partir duquel lire les messages. Sans ce paramètre, le dernier commit de `HEAD` fournit les notes.
 
 ```powershell
-cargo tauri build --bundles nsis --config src-tauri/installer/updates.json
+npm ci
+npm run build:editor
+pwsh -NoProfile -File ./src-tauri/installer/build-release.ps1
 ```
 
-Renseigne également la clé publique dans `plugins.updater.pubkey` de la configuration Tauri pour la compilation signée. Publie l’installateur signé et le manifeste `latest.json`. Le manifeste doit contenir la nouvelle version et, pour `windows-x86_64`, l’URL de l’installateur et le contenu de sa signature `.sig`. Installe manuellement la première version compilée avec l’URL et la clé publique avant de vérifier le passage vers une version ultérieure.
+Les fichiers sont dans `src-tauri/target/github-release/v<version>`.
 
-[Documentation Tauri](https://v2.tauri.app/plugin/updater/)
+[Documentation Tauri sur les mises à jour signées](https://v2.tauri.app/plugin/updater/)

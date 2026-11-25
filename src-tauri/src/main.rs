@@ -612,6 +612,7 @@ fn main() {
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(python::RunningProcess::default())
         .manage(serial::SerialMonitor::default())
+        .manage(updates::DownloadedUpdate::default())
         .invoke_handler(tauri::generate_handler![
             get_default_vault,
             scan_vault,
@@ -635,8 +636,9 @@ fn main() {
             serial::serial_connect,
             serial::serial_send,
             serial::serial_disconnect,
-            updates::app_version,
+            updates::app_release_info,
             updates::check_app_update,
+            updates::download_app_update,
             updates::install_app_update
         ])
         .run(tauri::generate_context!())

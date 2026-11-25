@@ -1,81 +1,124 @@
-name: Auto Release on Push
+name: Black Hole Rolling
 
 on:
   push:
-    branches:
-      - main
-    paths-ignore:
-      - "**.md"
-      - ".gitignore"
+    branches: [main]
+  workflow_dispatch:
 
-# Si tu push plusieurs fois vite, annule l'ancien build pour ne garder que le dernier
 concurrency:
-  group: auto-release-${{ github.ref }}
-  cancel-in-progress: true
+  group: black-hole-rolling
+  cancel-in-progress: false
+
+permissions:
+  contents: write
 
 jobs:
-  build-and-release:
-    permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-latest
-          - platform: ubuntu-22.04
-
-    runs-on: ${{ matrix.platform }}
+  windows:
+    if: github.ref == 'refs/heads/main'
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: pwsh
     steps:
-      - name: Récupérer le code
-        uses: actions/checkout@v4
-
-      - name: Installer Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
         with:
-          node-version: 20
+          fetch-depth: 0
+          persist-credentials: false
 
-      - name: Incrémenter la version automatiquement (sans modifier ton Git local)
-        id: bump
-        shell: bash
+      - name: Lire le dernier build publié
+        id: previous
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FIRST_BASE: ${{ github.event.before }}
         run: |
-          node -e '
-            const fs = require("fs");
-            const run = process.env.GITHUB_RUN_NUMBER;
-            const confPath = "src-tauri/tauri.conf.json";
-            const conf = JSON.parse(fs.readFileSync(confPath, "utf8"));
-            const [maj, min] = String(conf.version || "0.2.0").split(".");
-            const nextVer = `${maj}.${min}.${run}`;
-            conf.version = nextVer;
-            fs.writeFileSync(confPath, JSON.stringify(conf, null, 2));
+          $tag = 'rolling'
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
+          $release = Invoke-RestMethod "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" -Headers $headers -SkipHttpErrorCheck -StatusCodeVariable status
+          if ($status -notin 200, 404) { throw "GitHub Releases a renvoyé $status." }
 
-            const cargoPath = "src-tauri/Cargo.toml";
-            let cargo = fs.readFileSync(cargoPath, "utf8");
-            cargo = cargo.replace(/^version\s*=\s*"[^"]+"/m, `version = "${nextVer}"`);
-            fs.writeFileSync(cargoPath, cargo);
-            console.log("Version compilée :", nextVer);
-          '
+          $base = $env:FIRST_BASE
+          $versions = @()
+          if ($status -eq 200) {
+            if ($release.immutable -or $release.draft) { throw "La release rolling doit être publique et modifiable." }
+            foreach ($asset in $release.assets) {
+              if ($asset.name -match '^Black-Hole_(\d+\.\d+\.\d+)_x64-setup\.exe$') {
+                $versions += [version]$Matches[1]
+              }
+            }
+            if ($release.assets.name -contains 'latest.json') {
+              $previousPath = Join-Path $env:RUNNER_TEMP 'black-hole-previous.json'
+              gh release download $tag --pattern latest.json --output $previousPath --repo $env:GITHUB_REPOSITORY
+              if ($LASTEXITCODE -ne 0) { throw "Impossible de lire le manifeste publié." }
+              $previous = Get-Content -Raw -Encoding UTF8 -LiteralPath $previousPath | ConvertFrom-Json
+              if ($previous.commit -notmatch '^[0-9a-f]{40}$') { throw "SHA publié invalide." }
+              $base = $previous.commit
+              $versions += [version]$previous.version
+            }
+          }
+          $highest = $versions | Sort-Object -Descending | Select-Object -First 1
+          "base=$base" >> $env:GITHUB_OUTPUT
+          "highest=$highest" >> $env:GITHUB_OUTPUT
+          "already_published=$([string]($previous.commit -eq $env:GITHUB_SHA))" >> $env:GITHUB_OUTPUT
 
-      - name: Builder le bundle éditeur (si script présent)
+      - uses: actions/setup-node@v4
+        if: steps.previous.outputs.already_published != 'True'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Construire l’éditeur
+        if: steps.previous.outputs.already_published != 'True'
         run: |
           npm ci
-          npm run build --if-present
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run build:editor
 
-      - name: Dépendances Linux (Tauri v2)
-        if: matrix.platform == 'ubuntu-22.04'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libudev-dev
+      - uses: dtolnay/rust-toolchain@stable
+        if: steps.previous.outputs.already_published != 'True'
 
-      - name: Installer Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Installer la CLI Tauri
+        if: steps.previous.outputs.already_published != 'True'
+        run: npm exec --yes --package=@tauri-apps/cli@2.12.6 -- tauri --version
 
-      - name: Compiler Tauri et publier la Release automatiquement
-        uses: tauri-apps/tauri-action@v0
+      - name: Signer l’installateur et produire les nouveautés
+        id: build
+        if: steps.previous.outputs.already_published != 'True'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tagName: v__VERSION__
-          releaseName: "Black Hole v__VERSION__"
-          releaseBody: "Build automatique depuis le dernier push sur main."
-          releaseDraft: false
-          prerelease: false
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          BASE_COMMIT: ${{ steps.previous.outputs.base }}
+          PUBLISHED_VERSION: ${{ steps.previous.outputs.highest }}
+        run: |
+          if (-not $env:TAURI_SIGNING_PRIVATE_KEY) { throw "Ajoute le secret TAURI_SIGNING_PRIVATE_KEY dans le dépôt." }
+          $releaseArgs = @{ AutoVersion = $true; BaseCommit = $env:BASE_COMMIT; UseNpmCli = $true }
+          if ($env:PUBLISHED_VERSION) { $releaseArgs.PublishedVersion = [version]$env:PUBLISHED_VERSION }
+          ./src-tauri/installer/build-release.ps1 @releaseArgs
+
+      - name: Publier sur la release rolling
+        if: steps.build.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.build.outputs.version }}
+        run: |
+          $remote = git ls-remote --exit-code origin refs/heads/main
+          if ($LASTEXITCODE -ne 0) { throw "Impossible de vérifier la tête de main." }
+          if (($remote -split '\s+')[0] -ne $env:GITHUB_SHA) {
+            Write-Host 'Un push plus récent a remplacé ce build.'
+            exit 0
+          }
+          $tag = 'rolling'
+          $folder = "src-tauri/target/github-release/v$env:VERSION"
+          $installer = "$folder/Black-Hole_$($env:VERSION)_x64-setup.exe"
+          $manifest = "$folder/latest.json"
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; Accept = 'application/vnd.github+json' }
+          Invoke-RestMethod "$env:GITHUB_API_URL/repos/$env:GITHUB_REPOSITORY/releases/tags/$tag" -Headers $headers -SkipHttpErrorCheck -StatusCodeVariable status | Out-Null
+          if ($status -eq 404) {
+            gh release create $tag $installer "$installer.sig" $manifest --target $env:GITHUB_SHA --title 'Black Hole Rolling' --notes 'Canal de mise à jour automatique de Black Hole pour Windows x64.' --latest=false --repo $env:GITHUB_REPOSITORY
+            exit $LASTEXITCODE
+          }
+          if ($status -ne 200) { throw "GitHub Releases a renvoyé $status." }
+
+          gh release upload $tag $installer "$installer.sig" --repo $env:GITHUB_REPOSITORY
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          gh release upload $tag $manifest --clobber --repo $env:GITHUB_REPOSITORY
+          exit $LASTEXITCODE

@@ -1053,7 +1053,8 @@ body:not(.is-files-view) .sbbh-view .sbbh-toolbar { top: 54px; }
 }
 .lab-updates-state p { margin: 0 0 9px; color: #e8cef9; font-size: 13px; }
 .lab-updates-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-#updates-remote-notes { white-space: pre-wrap; overflow-wrap: anywhere; color: #decce9; }
+#updates-remote-notes, #updates-installed-notes { white-space: pre-wrap; overflow-wrap: anywhere; color: #decce9; }
+#updates-progress { width: 100%; margin-bottom: 9px; accent-color: #c084fc; }
 .lab-release { border-bottom: 1px solid #3b2c4d; padding: 10px 0; }
 .lab-release h4 { margin: 0; color: #d7b5f2; font-size: 13px; }
 .lab-release ul { margin: 6px 0 0; padding-left: 19px; font-size: 13px; line-height: 1.5; }

@@ -203,13 +203,18 @@
     <div class="lab-updates-content">
       <section class="lab-updates-state" aria-label="État de la mise à jour">
         <p id="updates-status" role="status">Version en cours de lecture…</p>
+        <progress id="updates-progress" max="100" aria-label="Téléchargement de la mise à jour" hidden></progress>
         <div class="lab-updates-actions">
           <button id="updates-check" class="lab-btn" type="button">Vérifier</button>
           <button id="updates-install" class="lab-btn lab-btn-run" type="button" hidden>Installer la mise à jour</button>
         </div>
         <pre id="updates-remote-notes" hidden></pre>
       </section>
-      <h3>Nouveautés</h3>
+      <section id="updates-installed" class="lab-release" hidden>
+        <h3 id="updates-installed-title"></h3>
+        <pre id="updates-installed-notes"></pre>
+      </section>
+      <h3>Historique</h3>
       <div id="updates-history"></div>
     </div>
   </dialog>

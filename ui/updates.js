@@ -1,7 +1,7 @@
 "use strict";
 
 (() => {
-  const { invoke } = window.__TAURI__.core;
+  const { Channel, invoke } = window.__TAURI__.core;
   const el = id => document.getElementById(id);
   const badge = el("app-version");
   const dialog = el("updates-dialog");
@@ -9,13 +9,18 @@
   const notes = el("updates-remote-notes");
   const install = el("updates-install");
   const check = el("updates-check");
+  const progress = el("updates-progress");
   const seenKey = "sbbh_last_seen_version";
+  const lastCheckKey = "sbbh_update_last_check";
+  const automaticCheckInterval = 15 * 60 * 1000;
   let localVersion;
   let candidate;
+  let downloadedVersion;
   let busy = false;
   let installing = false;
 
   const releases = [
+    ["0.2.4", "Mises à jour", ["Vérification des nouvelles versions et installation des mises à jour signées depuis GitHub Releases."]],
     ["0.2.3", "Simulation Arduino", ["Vérification du câblage des LED et simulation du croquis Uno compilé."]],
     ["0.2.2", "Nouvelle icône", ["Le trou noir illustré devient l’icône de l’application et de l’installateur Windows."]],
     ["0.2.1", "Version et nouveautés", [
@@ -58,6 +63,11 @@
 
   async function checkUpdates() {
     if (busy || !localVersion) return;
+    if (!navigator.onLine) {
+      showState("error", "Hors ligne. La version installée reste disponible.");
+      return;
+    }
+    localStorage.setItem(lastCheckKey, Date.now());
     busy = check.disabled = true;
     candidate = null;
     install.hidden = notes.hidden = true;
@@ -69,11 +79,12 @@
         notes.textContent = result.notes || "";
         notes.hidden = !result.notes;
         install.hidden = false;
+        install.textContent = candidate === downloadedVersion ? "Installer et relancer" : "Installer la mise à jour";
         showState("available", `Version ${candidate} disponible.`);
       } else if (result.state === "current") {
         showState("current", `Tu es à jour avec la version ${localVersion}.`);
       } else {
-        showState("unconfigured", "Canal de mise à jour non configuré.");
+        showState("error", "Le manifeste de mise à jour est indisponible sur GitHub Releases.");
       }
     } catch {
       showState("error", "Vérification impossible. Réessaie dans un instant.");
@@ -89,31 +100,55 @@
     if (localVersion) localStorage.setItem(seenKey, localVersion);
   });
   check.onclick = checkUpdates;
+  function readyToRestart() {
+    if (!hasUnsavedDocuments() && !fileOperation && !graphLinkPending && !pythonRunning && !arduinoCompiling) return true;
+    showState("available", "Enregistre tes fichiers et termine les exécutions avant l’installation.");
+    return false;
+  }
+
   install.onclick = async () => {
-    if (busy || !candidate) return;
-    if (hasUnsavedDocuments() || fileOperation || pythonRunning || arduinoCompiling) {
-      showState("available", "Enregistre tes fichiers et termine les exécutions avant l’installation.");
-      return;
-    }
+    if (busy || !candidate || !readyToRestart()) return;
     busy = install.disabled = check.disabled = true;
     installing = el("updates-close").disabled = true;
-    showState("checking", "Téléchargement et installation en cours…");
     try {
+      if (downloadedVersion !== candidate) {
+        showState("checking", "Téléchargement de la mise à jour…");
+        progress.removeAttribute("value");
+        progress.hidden = false;
+        const channel = new Channel();
+        channel.onmessage = ({ received, total }) => {
+          if (total) progress.value = Math.min(100, (100 * received) / total);
+        };
+        await invoke("download_app_update", { expectedVersion: candidate, progress: channel });
+        downloadedVersion = candidate;
+        install.textContent = "Installer et relancer";
+        progress.hidden = true;
+      }
+      if (!readyToRestart()) return;
+      await arduinoSerial.closePort();
+      if (!readyToRestart()) return;
+      showState("checking", "Installation en cours. Black Hole va se relancer…");
+      downloadedVersion = null;
+      install.textContent = "Installer la mise à jour";
       await invoke("install_app_update", { expectedVersion: candidate });
-      status.textContent = "Mise à jour installée. Redémarre l’application.";
     } catch (error) {
       showState("error", `Installation impossible — ${error}`);
     } finally {
+      progress.hidden = true;
       busy = install.disabled = check.disabled = false;
       installing = el("updates-close").disabled = false;
     }
   };
 
-  invoke("app_version").then(version => {
+  invoke("app_release_info").then(({ version, notes: installedNotes }) => {
     localVersion = version;
     el("app-version-value").textContent = `v${version}`;
+    el("updates-installed-title").textContent = `Nouveautés de la version ${version}`;
+    el("updates-installed-notes").textContent = installedNotes || "Aucun message de commit pour cette version.";
+    el("updates-installed").hidden = false;
+    showState("unknown", `Version ${version} installée.`);
     if (localStorage.getItem(seenKey) !== version && !dialog.open
         && !document.querySelector('dialog[open], #lab-modal:not([hidden])')) dialog.showModal();
-    checkUpdates();
+    if (!navigator.onLine || Date.now() - Number(localStorage.getItem(lastCheckKey)) >= automaticCheckInterval) checkUpdates();
   }).catch(() => showState("error", "Impossible de lire la version installée."));
 })();
