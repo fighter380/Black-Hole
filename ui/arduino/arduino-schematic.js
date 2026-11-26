@@ -13,6 +13,7 @@
   const save = el("schematic-save");
   const rotate = el("schematic-rotate");
   const remove = el("schematic-remove");
+  const componentPicker = el("schematic-components");
   const width = 1000;
   const height = 580;
 
@@ -72,6 +73,7 @@
   let project;
   let model;
   let selected = null;
+  let placementKind = null;
   let pinStart = null;
   let drag = null;
   let suppressCanvasClick = false;
@@ -165,6 +167,44 @@
     save.disabled = saving || !dirty;
     simulate.disabled = compiling;
     simulate.textContent = worker ? "Arrêter la simulation" : "Compiler et simuler";
+  }
+
+  function selectComponent(kind) {
+    placementKind = kind;
+    if (kind) pinStart = null;
+    canvas.classList.toggle("is-placing", Boolean(kind));
+    for (const button of componentPicker.children) {
+      button.setAttribute("aria-pressed", String(button.dataset.kind === kind));
+    }
+  }
+
+  function placeComponent({ x, y }) {
+    const kind = placementKind;
+    const [w, h] = types[kind].size;
+    const snap = (value, size, limit) => Math.min(limit - size / 2 - 18,
+      Math.max(size / 2 + 18, Math.round(value / 5) * 5));
+    const part = makePart(kind, snap(x, w, width), snap(y, h, height));
+    selectComponent(null);
+    model.parts.push(part);
+    selected = { type: "part", id: part.id };
+    changed(`${types[kind].title} ajouté.`);
+  }
+
+  for (const [kind, type] of Object.entries(types)) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "lab-btn";
+    button.dataset.kind = kind;
+    button.textContent = type.title;
+    button.setAttribute("aria-pressed", "false");
+    button.onclick = () => {
+      selectComponent(placementKind === kind ? null : kind);
+      renderCanvas();
+      message(placementKind ? `${type.title} · Clique sur le schéma pour le placer. Entrée le place au centre.`
+        : "Placement annulé.");
+      if (placementKind) canvas.focus();
+    };
+    componentPicker.append(button);
   }
 
   function updateLights() {
@@ -360,7 +400,7 @@
 
   canvas.addEventListener("pointerdown", event => {
     suppressCanvasClick = false;
-    if (event.button !== 0 || event.target.closest("[data-pin]")) return;
+    if (placementKind || event.button !== 0 || event.target.closest("[data-pin]")) return;
     const element = event.target.closest("[data-part]");
     if (!element) return;
     const part = model.parts.find(part => part.id === element.dataset.part);
@@ -409,6 +449,10 @@
     }
   }
   canvas.addEventListener("click", event => {
+    if (placementKind) {
+      placeComponent(point(event));
+      return;
+    }
     // A pointer drag ends with a click on the canvas itself.
     if (event.target === canvas && suppressCanvasClick) return;
     activate(event.target);
@@ -416,6 +460,10 @@
   canvas.addEventListener("keydown", event => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
+      if (placementKind) {
+        placeComponent({ x: width / 2, y: height / 2 });
+        return;
+      }
       activate(event.target);
     }
   });
@@ -434,18 +482,6 @@
     changed(type === "wire" ? "Fil supprimé." : "Composant supprimé.");
   }
 
-  el("schematic-add").onclick = () => {
-    const index = model.parts.length;
-    const kind = el("schematic-kind").value;
-    const part = makePart(kind, 570 + index % 3 * 140, 135 + Math.floor(index / 3) % 4 * 110);
-    if (kind === "uno") {
-      part.x = 500;
-      part.y = 280;
-    }
-    model.parts.push(part);
-    selected = { type: "part", id: part.id };
-    changed(`${types[kind].title} ajouté.`);
-  };
   rotate.onclick = () => {
     const part = selectedPart();
     if (!part) return;
@@ -482,6 +518,7 @@
 
   function hide() {
     simulationRequest++;
+    selectComponent(null);
     stopSimulation();
     if (!panel.hidden && panel.contains(document.activeElement)) toggle.focus();
     panel.hidden = true;
@@ -511,7 +548,10 @@
     if (event.key === "Delete" && !event.target.closest("input,select")) removeSelected();
     if (event.key === "Escape") {
       event.preventDefault();
-      if (pinStart) {
+      if (placementKind) {
+        selectComponent(null);
+        message("Placement annulé.");
+      } else if (pinStart) {
         pinStart = null;
         renderCanvas();
         message("Tracé du fil annulé.");

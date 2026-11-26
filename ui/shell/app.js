@@ -462,7 +462,10 @@ const btnColor = document.getElementById("btn-color");
 const btnArduinoCli = document.getElementById("btn-arduino-cli");
 const btnArduinoUpload = document.getElementById("btn-arduino-upload");
 const btnArduinoSchematic = document.getElementById("btn-arduino-schematic");
-const arduinoSerial = ArduinoSerial.create(syncCodeActions);
+const arduinoTools = document.getElementById("arduino-tools");
+const arduinoConsoleToggle = document.getElementById("arduino-console-toggle");
+const arduinoSerial = ArduinoSerial.create(syncCodeActions, () => setArduinoConsoleOpen(true));
+let arduinoConsoleOpen = false;
 const searchInput = document.getElementById("lab-search");
 const searchResults = document.getElementById("lab-search-results");
 const webTabs = document.getElementById("web-files");
@@ -475,6 +478,8 @@ const codeMirrorEditorHost = document.getElementById("web-editor-host");
 const btnCloseDrawer = document.getElementById("btn-close-drawer");
 const viewGraph = document.getElementById("view-graph");
 const viewFiles = document.getElementById("view-files");
+const viewGit = document.getElementById("view-git");
+let sidebarOpen = workspaceView === "files";
 const mapRoot = document.getElementById("map-root");
 const fileExplorer = document.getElementById("file-explorer");
 const workspacePicker = document.getElementById("workspace-folders");
@@ -582,7 +587,8 @@ function showSidebarPanel(panel) {
   sidebarFiles.setAttribute("aria-pressed", String(!git));
   sidebarGit.setAttribute("aria-pressed", String(git));
   vaultTree.hidden = git;
-  gitPanel.show(git && workspaceView === "files");
+  gitPanel.show(git && sidebarOpen);
+  viewGit.setAttribute("aria-pressed", String(git && sidebarOpen));
 }
 
 function updateWorkspaceVisibility() {
@@ -591,7 +597,11 @@ function updateWorkspaceVisibility() {
   viewGraph.setAttribute("aria-pressed", String(!files));
   viewFiles.setAttribute("aria-pressed", String(files));
   mapRoot.inert = files;
-  fileExplorer.hidden = !files;
+  if (document.body.classList.contains("has-sidebar") !== sidebarOpen) {
+    document.body.classList.toggle("has-sidebar", sidebarOpen);
+    requestAnimationFrame(() => activeView?.map?.resize());
+  }
+  fileExplorer.hidden = !sidebarOpen;
   showSidebarPanel(sidebarPanel);
   filesEmpty.hidden = !files || !drawer.hidden;
   btnCloseDrawer.textContent = files ? "Fermer" : "Masquer";
@@ -602,6 +612,7 @@ function setWorkspaceView(view) {
   if (view === workspaceView) return;
   if (graphLinkMode && !graphLinkPending) finishGraphLinkMode();
   workspaceView = view;
+  sidebarOpen = view === "files";
   localStorage.setItem("sbbh_workspace_view", view);
   if (view === "graph") {
     closeDrawer();
@@ -769,13 +780,19 @@ function configureStudio() {
   btnColor.hidden = !isWeb;
   btnArduinoCli.hidden = !isArduino;
   btnArduinoUpload.hidden = !isArduino;
-  btnArduinoSchematic.hidden = !isArduino;
+  arduinoTools.hidden = !isArduino;
   if (ArduinoSchematic.isOpen && !ArduinoSchematic.matches(currentArduinoTarget())) ArduinoSchematic.hide();
   editorHost.hidden = isWeb || isArduino;
   codeMirrorEditorHost.hidden = !isWeb && !isArduino;
-  studioConsole.hidden = isWeb;
-  consoleTitle.textContent = isArduino ? "Arduino · Uno (AVR)" : "Console Python";
-  btnRun.textContent = isWeb ? "↻ Aperçu" : isArduino ? "Compiler" : "▶ Run";
+  if (isArduino) {
+    arduinoTools.append(studioConsole);
+    setArduinoConsoleOpen(arduinoConsoleOpen);
+  } else {
+    arduinoTools.after(studioConsole);
+    studioConsole.hidden = isWeb;
+  }
+  consoleTitle.textContent = isArduino ? "Compilation · Arduino Uno" : "Sortie Python";
+  btnRun.textContent = isWeb ? "↻ Aperçu" : isArduino ? "✓ Compiler" : "▶ Exécuter";
   btnRun.title = isWeb ? "Actualiser l’aperçu (Ctrl+Entrée)" :
     isArduino ? "Compiler pour Arduino Uno (Ctrl+Entrée)" : "Exécuter Python (Ctrl+Entrée)";
   arduinoSerial.show(isArduino);
@@ -788,6 +805,16 @@ function configureStudio() {
     webPagePath = null;
     editor.placeholder = currentFile.ext === "py" ? "# Ctrl+Espace pour l’autocomplétion" : "";
   }
+}
+
+function setArduinoConsoleOpen(open) {
+  arduinoConsoleOpen = open;
+  studioConsole.hidden = !open;
+  arduinoConsoleToggle.setAttribute("aria-expanded", String(open));
+  const label = open ? "Replier la console" : "Déplier la console";
+  arduinoConsoleToggle.title = label;
+  arduinoConsoleToggle.setAttribute("aria-label", label);
+  arduinoConsoleToggle.textContent = open ? "⌄" : "⌃";
 }
 
 function syncCodeActions() {
@@ -884,6 +911,11 @@ async function openFileInStudio(fileObj) {
     }
     drawer.hidden = false;
     if (currentFile?.path !== fileObj.path) mountStudio(doc);
+    if (workspaceView === "graph") {
+      const keepSidebar = sidebarOpen;
+      setWorkspaceView("files");
+      sidebarOpen = keepSidebar;
+    }
     showStudio();
     renderOpenTabs();
     updateExplorer();
@@ -942,6 +974,8 @@ function showStudio() {
   drawer.hidden = false;
   updateWorkspaceVisibility();
   if (WEB_EXTENSIONS.has(currentFile?.ext)) scheduleWebPreview();
+  const target = currentArduinoTarget();
+  if (target && !ArduinoSchematic.matches(target) && !ArduinoSchematic.hasUnsavedChanges) openArduinoSchematic(target);
 }
 
 function closeDrawer() {
@@ -1514,6 +1548,10 @@ btnArduinoSchematic.onclick = async () => {
     ArduinoSchematic.hide();
     return;
   }
+  await openArduinoSchematic(target);
+};
+
+async function openArduinoSchematic(target) {
   const stillActive = () => {
     const active = currentArduinoTarget();
     return active?.vaultPath === target.vaultPath && active?.sketchPath === target.sketchPath;
@@ -1530,31 +1568,22 @@ btnArduinoSchematic.onclick = async () => {
   } catch (error) {
     alert(String(error));
   }
-};
+}
 
 const newMenu = document.getElementById("new-menu");
-newMenu.addEventListener("click", event => {
-  if (event.target.closest(".lab-new-options button")) newMenu.open = false;
-});
-newMenu.addEventListener("keydown", event => {
-  if (event.key === "Escape" && newMenu.open) {
-    event.preventDefault();
-    newMenu.open = false;
-    newMenu.querySelector("summary").focus();
-  }
-});
-document.addEventListener("click", event => {
-  if (newMenu.open && !newMenu.contains(event.target)) newMenu.open = false;
-});
+document.getElementById("open-new-menu").onclick = () => newMenu.showModal();
+document.getElementById("close-new-menu").onclick = () => newMenu.close();
 
-document.getElementById("btn-new").onclick = () => {
+function newFile(kind) {
+  newMenu.close();
   const project = !drawer.hidden && WEB_EXTENSIONS.has(currentFile?.ext)
     ? webProjectPath(currentFile.path)
     : null;
   openModal(
-    "Nouveau fichier",
+    kind === "note" ? "Nouvelle note Markdown" : kind === "python" ? "Nouveau script Python" : "Nouveau fichier",
     "Chemin relatif au dossier (ex. Python/algo.py, Arduino/Blink/broches.h ou Sites/mon-site/contact.html)",
-    project === null ? "Python/nouveau_script.py" : [project, "nouveau.html"].filter(Boolean).join("/"),
+    kind === "note" ? "Notes/nouvelle-note.md" : kind === "python" || project === null
+      ? "Python/nouveau_script.py" : [project, "nouveau.html"].filter(Boolean).join("/"),
     async (rawPath) => {
       const relPath = rawPath.replace(/\\/g, "/");
       const ext = relPath.split(".").pop().toLowerCase();
@@ -1569,9 +1598,25 @@ document.getElementById("btn-new").onclick = () => {
       await openFileInStudio(filesList.find(file => file.path === relPath));
     }
   );
+}
+
+document.getElementById("btn-new").onclick = () => newFile("file");
+document.getElementById("btn-new-note").onclick = () => newFile("note");
+document.getElementById("btn-new-python").onclick = () => newFile("python");
+document.getElementById("btn-new-directory").onclick = () => {
+  newMenu.close();
+  openModal("Nouveau dossier", "Chemin relatif dans le dossier actif.", "nouveau-dossier", async path => {
+    await invoke("create_vault_directory", { vaultPath, relPath: path.replace(/\\/g, "/") });
+    await reloadVault();
+    setWorkspaceView("files");
+    sidebarOpen = true;
+    showSidebarPanel("files");
+    updateWorkspaceVisibility();
+  });
 };
 
 document.getElementById("btn-new-site").onclick = () => {
+  newMenu.close();
   openModal(
     "Nouveau site Web",
     "Crée un dossier dans Sites avec index.html, style.css et script.js.",
@@ -1585,6 +1630,7 @@ document.getElementById("btn-new-site").onclick = () => {
 };
 
 document.getElementById("btn-new-arduino").onclick = () => {
+  newMenu.close();
   openModal(
     "Nouveau croquis Arduino",
     "Le dossier du croquis et le fichier .ino porteront le même nom.",
@@ -1633,6 +1679,7 @@ async function switchFolder(newPath) {
 
 async function chooseFolder() {
   if (choosingFolder) return;
+  newMenu.close();
   choosingFolder = folderAdd.disabled = folderButton.disabled = true;
   try {
     const path = await invoke("choose_vault_folder");
@@ -1656,10 +1703,34 @@ sidebarGit.onclick = () => showSidebarPanel("git");
 document.getElementById("btn-reload").onclick = () => reloadVault().catch(err => alert(String(err)));
 btnRun.onclick = runCurrentCode;
 btnStop.onclick = () => invoke("stop_python").catch(err => alert(String(err)));
+document.getElementById("btn-clear-console").onclick = () => {
+  const doc = activeDocument();
+  if (doc && !pythonRunning && !arduinoCompiling) setDocumentConsole(doc, "", "Prêt");
+};
 btnSave.onclick = () => saveCurrentFile(false);
 document.getElementById("btn-delete").onclick = deleteCurrentFile;
-viewGraph.onclick = () => setWorkspaceView("graph");
-viewFiles.onclick = () => setWorkspaceView("files");
+viewGraph.onclick = () => {
+  if (workspaceView === "graph") {
+    sidebarOpen = false;
+    closeDrawer();
+  } else setWorkspaceView("graph");
+};
+viewFiles.onclick = () => {
+  setWorkspaceView("files");
+  sidebarOpen = true;
+  showSidebarPanel("files");
+  updateWorkspaceVisibility();
+};
+viewGit.onclick = () => {
+  sidebarOpen = !(sidebarOpen && sidebarPanel === "git");
+  showSidebarPanel("git");
+  updateWorkspaceVisibility();
+};
+document.getElementById("close-sidebar").onclick = () => {
+  sidebarOpen = false;
+  updateWorkspaceVisibility();
+};
+arduinoConsoleToggle.onclick = () => setArduinoConsoleOpen(!arduinoConsoleOpen);
 btnCloseDrawer.onclick = () => {
   if (workspaceView === "files") closeFileTab(currentFile?.path);
   else closeDrawer();
@@ -1701,7 +1772,7 @@ document.addEventListener("click", (e) => {
 });
 
 window.addEventListener("keydown", (e) => {
-  if (e.defaultPrevented || !document.getElementById("lab-modal").hidden || colorDialog.open
+  if (e.defaultPrevented || !document.getElementById("lab-modal").hidden || colorDialog.open || newMenu.open
       || document.getElementById("updates-dialog").open) return;
   if (e.key === "F2" && !drawer.hidden) {
     e.preventDefault();
@@ -1710,6 +1781,9 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     searchInput.focus();
     searchInput.select();
+  } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") {
+    e.preventDefault();
+    chooseFolder();
   } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" && !drawer.hidden) {
     e.preventDefault();
     saveCurrentFile(false);

@@ -6,44 +6,35 @@
   <title>Second Brain Black Hole — Code Lab</title>
   <link rel="stylesheet" href="graph/black-hole-map.css" />
   <link rel="stylesheet" href="shell/app.css" />
+  <link rel="stylesheet" href="shell/workbench.css" />
 </head>
 <body>
   <div id="map-root" class="view-content"></div>
 
-  <div class="lab-topbar">
-    <div class="lab-navigation">
-      <button id="app-version" class="sbbh-toolbar-button lab-version" type="button" title="Ouvrir les mises à jour et les nouveautés">
-        <span class="lab-version-name">Second Brain</span><span id="app-version-value">…</span>
-        <span id="app-version-indicator" aria-hidden="true"></span>
-      </button>
-      <nav class="lab-views" aria-label="Vue du dossier">
-        <button id="view-graph" class="sbbh-toolbar-button lab-view-tab" type="button" aria-pressed="true">Graphe</button>
-        <button id="view-files" class="sbbh-toolbar-button lab-view-tab" type="button" aria-pressed="false">Fichiers</button>
-      </nav>
-      <div class="lab-folder-actions">
-        <details id="new-menu" class="lab-new-menu">
-          <summary class="sbbh-toolbar-button">+ Nouveau <span aria-hidden="true">▾</span></summary>
-          <div class="lab-new-options" aria-label="Type de création">
-            <button id="btn-new" class="lab-btn" type="button">Fichier</button>
-            <button id="btn-new-site" class="lab-btn" type="button">Site Web</button>
-            <button id="btn-new-arduino" class="lab-btn" type="button">Projet Arduino</button>
-          </div>
-        </details>
-        <button id="btn-link-stars" class="sbbh-toolbar-button lab-graph-only" type="button" aria-pressed="false" title="Relier ou délier deux fichiers">Relier</button>
-        <button id="btn-vault" class="sbbh-toolbar-button" type="button" title="Ouvrir un dossier externe">Dossier</button>
-      </div>
+  <nav class="lab-rail" aria-label="Navigation principale">
+    <button id="view-graph" class="lab-rail-button" type="button" aria-label="Graphe" title="Graphe" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="m11 7-5 9m7-9 5 9M8 18h8"/></svg></button>
+    <button id="view-files" class="lab-rail-button" type="button" aria-label="Fichiers" title="Fichiers" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></button>
+    <button id="view-git" class="lab-rail-button" type="button" aria-label="Git" title="Git" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="4.5" r="2.5"/><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M6 7v9.5m0-3c7 0 12-1 12-5"/></svg><span id="git-rail-count" hidden></span></button>
+    <button id="app-version" class="lab-rail-button lab-version" type="button" aria-label="Mises à jour" title="Mises à jour et nouveautés">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10 3-.7 2.6-2 .9-2.5-1.1-2 3.4 2 1.6v2.3l-2 1.6 2 3.4 2.5-1.1 2 .9L10 21h4l.7-2.6 2-.9 2.5 1.1 2-3.4-2-1.6v-2.3l2-1.6-2-3.4-2.5 1.1-2-.9L14 3z"/><circle cx="12" cy="12" r="3"/></svg><span id="app-version-value">…</span><span id="app-version-indicator" aria-hidden="true"></span>
+    </button>
+  </nav>
+  <header class="lab-topbar">
+    <div class="lab-project-title"><span>Black Hole</span>
+      <select id="workspace-folders" class="lab-control" aria-label="Dossiers enregistrés"></select>
     </div>
     <div class="lab-search-wrap">
-      <input id="lab-search" type="text" aria-label="Rechercher un code ou une note" title="Rechercher (Ctrl+K)" placeholder="Rechercher un code ou une note…" autocomplete="off" />
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></svg><input id="lab-search" type="search" aria-label="Rechercher un code ou une note" title="Rechercher (Ctrl+K)" placeholder="Rechercher…" autocomplete="off" />
+      <kbd aria-hidden="true">Ctrl+K</kbd>
       <div id="lab-search-results" class="lab-search-results" hidden></div>
     </div>
-    <div class="lab-shortcuts">
-      <button id="btn-reload" class="sbbh-toolbar-button" type="button" title="Rescanner les fichiers" aria-label="Rescanner les fichiers">↻</button>
-    </div>
-  </div>
-  <div class="lab-graph-controls lab-graph-only" role="group" aria-label="Affichage du graphe">
-    <button id="btn-lite" class="sbbh-toolbar-button lab-graph-only" type="button" title="Basculer entre Trou Noir WebGL2 et Mode Ultra-Léger 2D">⚡ Eco</button>
-    <button id="btn-eco" class="sbbh-toolbar-button lab-graph-only" type="button" title="Mettre en pause l'animation">⏸ 3D</button>
+    <button id="btn-reload" class="lab-btn" type="button" title="Rescanner les fichiers" aria-label="Rescanner les fichiers">↻</button>
+  </header>
+  <div class="lab-graph-controls" role="group" aria-label="Actions principales">
+    <button id="open-new-menu" class="lab-btn" type="button">＋ Nouveau</button>
+    <button id="btn-link-stars" class="lab-btn lab-graph-only" type="button" aria-pressed="false" title="Relier ou délier deux fichiers">Relier</button>
+    <button id="btn-lite" class="lab-btn lab-graph-only" type="button" title="Basculer en mode léger">⚡ Éco</button>
+    <button id="btn-eco" class="lab-btn lab-graph-only" type="button" title="Mettre en pause l’animation">⏸ 3D</button>
   </div>
   <div id="link-stars-status" class="lab-link-status" role="status" hidden></div>
 
@@ -51,8 +42,8 @@
     <header class="lab-explorer-header">
       <h2 id="file-explorer-title">Explorateur</h2>
       <div class="lab-folder-picker">
-        <select id="workspace-folders" class="lab-control" aria-label="Dossiers enregistrés"></select>
-        <button id="btn-add-folder" class="lab-btn" type="button" aria-label="Ajouter un dossier" title="Ajouter un dossier">＋</button>
+        <button id="btn-add-folder" class="lab-btn" type="button" title="Ouvrir un dossier externe">＋ Dossier</button>
+        <button id="close-sidebar" class="lab-btn" type="button" aria-label="Masquer le panneau" title="Masquer le panneau">×</button>
       </div>
     </header>
     <nav class="lab-sidebar-tabs" aria-label="Panneaux de l’explorateur">
@@ -71,14 +62,16 @@
         <div><dt>Destination du push</dt><dd id="git-destination"></dd></div>
       </dl>
       <p id="git-status" class="lab-git-status" role="status"></p>
+      <div id="git-changes"></div>
+      <div id="git-ready" class="lab-git-ready" hidden></div>
       <div id="git-controls" hidden>
         <textarea id="git-message" class="lab-control" rows="2" aria-label="Message de commit" placeholder="Message de commit"></textarea>
         <div class="lab-git-actions">
-          <button id="git-commit" class="lab-btn lab-btn-run" type="button">Commit</button>
+          <button id="git-commit" class="lab-btn" type="button">Commit</button>
           <button id="git-push" class="lab-btn" type="button">Push</button>
+          <button id="git-commit-push" class="lab-btn lab-btn-run" type="button">Commit et push</button>
         </div>
       </div>
-      <div id="git-changes"></div>
     </section>
   </aside>
 
@@ -96,11 +89,14 @@
       </div>
       <div class="lab-drawer-actions">
         <button id="btn-arduino-cli" class="lab-btn" type="button" title="Configurer le chemin d’Arduino CLI" hidden>CLI Arduino</button>
-        <button id="btn-arduino-schematic" class="lab-btn" type="button" aria-controls="arduino-schematic" aria-expanded="false" hidden>Schéma</button>
+          <div class="lab-serial-port-picker" id="arduino-port-picker" hidden>
+            <label for="arduino-port">Uno</label>
+            <select id="arduino-port" class="lab-control"><option value="">Choisir un port</option></select>
+            <button id="arduino-refresh-ports" type="button" class="lab-btn" aria-label="Actualiser les ports" title="Actualiser les ports">↻</button>
+          </div>
         <button id="btn-arduino-upload" class="lab-btn" type="button" hidden>Téléverser</button>
         <button id="btn-color" class="lab-btn lab-btn-color" type="button" title="Insérer ou modifier une couleur hexadécimale" hidden>Couleur</button>
         <button id="btn-run" class="lab-btn lab-btn-run" type="button" title="Exécuter Python / Tkinter (Ctrl+Entrée)">▶ Run</button>
-        <button id="btn-stop" class="lab-btn lab-btn-stop" type="button" hidden>■ Stop</button>
         <button id="btn-save" class="lab-btn" type="button" title="Sauvegarder (Ctrl+S)">Sauver</button>
         <button id="btn-delete" class="lab-btn lab-btn-danger" type="button" title="Supprimer ce fichier">✕</button>
         <button id="btn-close-drawer" class="lab-btn" type="button">Fermer</button>
@@ -125,6 +121,13 @@
         </div>
         <iframe id="web-preview-frame" title="Aperçu du site" sandbox="allow-scripts" referrerpolicy="no-referrer" hidden></iframe>
       </section>
+      <section id="arduino-tools" class="lab-arduino-tools" aria-label="Outils Arduino" hidden>
+        <nav id="arduino-console-controls" class="lab-console-tabs lab-arduino-tabs" aria-label="Panneaux Arduino" hidden>
+          <button id="btn-arduino-schematic" class="lab-btn" type="button" aria-controls="arduino-schematic" aria-expanded="false">Schéma</button>
+          <button id="arduino-build-tab" class="lab-btn" type="button" aria-pressed="true">Compilation</button>
+          <button id="arduino-serial-tab" class="lab-btn" type="button" aria-pressed="false">Série</button>
+          <button id="arduino-console-toggle" class="lab-btn" type="button" aria-expanded="true" aria-controls="studio-console" title="Replier la console" aria-label="Replier la console">⌄</button>
+        </nav>
       <section id="arduino-schematic" hidden class="lab-schematic" aria-labelledby="schematic-title">
         <header class="lab-schematic-header">
           <div><h2 id="schematic-title">Schéma électrique</h2><span id="schematic-project"></span></div>
@@ -135,43 +138,31 @@
             <button id="schematic-close" type="button" class="lab-btn">Masquer</button>
           </div>
         </header>
+        <details class="lab-component-picker" open>
+          <summary>Composants</summary>
+          <div id="schematic-components" class="lab-components"></div>
+        </details>
         <div class="lab-schematic-toolbar">
-          <select id="schematic-kind" class="lab-control" aria-label="Composant à ajouter">
-            <option value="uno">Arduino Uno</option>
-            <option value="led" selected>LED</option>
-            <option value="resistor">Résistance</option>
-            <option value="button">Bouton poussoir</option>
-            <option value="capacitor">Condensateur</option>
-            <option value="pot">Potentiomètre</option>
-            <option value="ground">Masse</option>
-          </select>
-          <button id="schematic-add" type="button" class="lab-btn">Ajouter</button>
           <button id="schematic-rotate" type="button" class="lab-btn">Tourner ↻</button>
           <button id="schematic-remove" type="button" class="lab-btn lab-btn-danger">Supprimer</button>
           <label for="schematic-label">Nom / valeur</label>
           <input id="schematic-label" class="lab-control" type="text" maxlength="40" />
         </div>
         <div class="lab-schematic-sheet">
-          <svg id="schematic-canvas" viewBox="0 0 1000 580" aria-label="Zone de schéma électrique"></svg>
+          <svg id="schematic-canvas" viewBox="0 0 1000 580" tabindex="0" aria-label="Zone de schéma électrique"></svg>
         </div>
         <footer id="schematic-status" class="lab-schematic-status" role="status"></footer>
         <ul id="schematic-diagnostics" class="lab-schematic-diagnostics" aria-label="Vérification du câblage" hidden></ul>
       </section>
+      </section>
       <div id="studio-console" class="lab-console">
-        <div id="arduino-console-controls" class="lab-arduino-console-controls" hidden>
-          <nav class="lab-console-tabs" aria-label="Console Arduino">
-            <button id="arduino-build-tab" type="button" class="lab-btn" aria-pressed="true">Compilation</button>
-            <button id="arduino-serial-tab" type="button" class="lab-btn" aria-pressed="false">Série</button>
-          </nav>
-          <div class="lab-serial-port-picker">
-            <label for="arduino-port">Port</label>
-            <select id="arduino-port" class="lab-control"><option value="">Choisir un port</option></select>
-            <button id="arduino-refresh-ports" type="button" class="lab-btn" aria-label="Actualiser les ports" title="Actualiser les ports">↻</button>
-          </div>
-        </div>
         <div id="studio-console-heading" class="lab-console-header">
           <span id="console-title">Console Python</span>
-          <span id="console-status" class="lab-console-status">Prêt</span>
+          <div class="lab-console-actions">
+            <span id="console-status" class="lab-console-status">Prêt</span>
+            <button id="btn-clear-console" class="lab-btn" type="button">Effacer</button>
+            <button id="btn-stop" class="lab-btn lab-btn-stop" type="button" hidden>■ Stop</button>
+          </div>
         </div>
         <pre id="console-output" class="lab-console-output"></pre>
         <section id="arduino-serial-panel" class="lab-serial-panel" aria-label="Moniteur série" hidden>
@@ -200,6 +191,19 @@
       </div>
     </div>
   </aside>
+
+  <dialog id="new-menu" class="lab-new-dialog" aria-labelledby="new-title">
+    <header><h2 id="new-title">Nouveau</h2><button id="close-new-menu" class="lab-btn" type="button" aria-label="Fermer">Échap</button></header>
+    <div class="lab-new-options">
+      <button id="btn-new-note" class="lab-btn" type="button"><span aria-hidden="true">Md</span> Note Markdown</button>
+      <button id="btn-new-python" class="lab-btn" type="button"><span aria-hidden="true">&gt;_</span> Script Python</button>
+      <button id="btn-new-site" class="lab-btn" type="button"><span aria-hidden="true">◎</span> Projet Web</button>
+      <button id="btn-new-arduino" class="lab-btn" type="button"><span aria-hidden="true">∞</span> Projet Arduino</button>
+      <button id="btn-new-directory" class="lab-btn" type="button"><span aria-hidden="true">＋</span> Nouveau dossier</button>
+      <button id="btn-new" class="lab-btn" type="button"><span aria-hidden="true">▤</span> Fichier</button>
+    </div>
+    <footer><button id="btn-vault" class="lab-btn" type="button">Ouvrir un dossier externe… <kbd>Ctrl+O</kbd></button></footer>
+  </dialog>
 
   <div id="lab-modal" class="lab-modal" hidden>
     <div class="lab-modal-card">

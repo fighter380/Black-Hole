@@ -14,6 +14,9 @@ window.createGitPanel = function createGitPanel(openChangedFile, canRun) {
   const controls = el("git-controls");
   const commit = el("git-commit");
   const push = el("git-push");
+  const commitPush = el("git-commit-push");
+  const ready = el("git-ready");
+  const railCount = el("git-rail-count");
   const message = el("git-message");
   const changes = el("git-changes");
   const labels = { A: "Ajouté", M: "Modifié", D: "Supprimé", R: "Renommé",
@@ -38,6 +41,7 @@ window.createGitPanel = function createGitPanel(openChangedFile, canRun) {
       !snapshot?.changes.some(file => !file.conflict && file.index !== ".") ||
       snapshot.changes.some(file => file.conflict);
     push.disabled = busy || !snapshot?.push_destination;
+    commitPush.disabled = commit.disabled || push.disabled;
     for (const button of changes.querySelectorAll(".lab-git-file-action")) button.disabled = busy;
   }
 
@@ -65,18 +69,19 @@ window.createGitPanel = function createGitPanel(openChangedFile, canRun) {
           showStatus("Ce fichier ne peut pas être ouvert dans le dossier actif.");
         }
       };
-      const action = document.createElement("button");
-      action.type = "button";
-      action.className = "lab-btn lab-git-file-action";
+      const action = document.createElement("input");
+      action.type = "checkbox";
+      action.className = "lab-git-check lab-git-file-action";
+      action.checked = staged;
       const label = staged ? "Retirer de l’index" : "Indexer";
       action.title = label;
       action.setAttribute("aria-label", `${label} ${file.path}`);
-      action.textContent = staged ? "−" : "+";
-      action.onclick = () => {
+      action.onchange = () => {
+        action.checked = staged;
         const paths = code === "R" && file.original ? [file.original, file.path] : [file.path];
         run({ type: staged ? "unstage" : "stage", paths }, staged ? "Fichier retiré de l’index." : "Fichier indexé.");
       };
-      row.append(marker, name, action);
+      row.append(action, name, marker);
       list.append(row);
     }
     section.append(list);
@@ -99,6 +104,12 @@ window.createGitPanel = function createGitPanel(openChangedFile, canRun) {
       : snapshot?.push_problem || (snapshot?.detached ? "Sélectionne une branche." : "Aucun dépôt distant configuré.");
     push.title = target ? `Pousser vers ${target.remote}/${target.branch}` : destination.textContent;
     changes.replaceChildren();
+    const count = snapshot?.changes.length || 0;
+    railCount.hidden = count === 0;
+    railCount.textContent = count > 99 ? "99+" : String(count);
+    ready.hidden = !snapshot?.ahead;
+    ready.textContent = snapshot?.ahead
+      ? `${snapshot.ahead} commit${snapshot.ahead > 1 ? "s" : ""} à pousser` : "";
     if (snapshot?.repository) {
       const staged = snapshot.changes.filter(file => !file.conflict && file.index !== ".");
       const modified = snapshot.changes.filter(file => file.conflict || file.worktree !== ".");
@@ -141,15 +152,24 @@ window.createGitPanel = function createGitPanel(openChangedFile, canRun) {
       return;
     }
     pending = true;
+    let committed = false;
     delete notice.dataset.fromRefresh;
     showStatus(action.type === "push" ? "Envoi en cours…" : "Opération Git en cours…");
     syncControls();
     try {
-      await invoke("git_apply", { folder, action });
-      if (action.type === "commit") message.value = "";
+      if (action.type === "commit_push") {
+        await invoke("git_apply", { folder, action: { type: "commit", message: action.message } });
+        message.value = "";
+        committed = true;
+        showStatus("Commit créé. Envoi en cours…");
+        await invoke("git_apply", { folder, action: { type: "push", destination: action.destination } });
+      } else {
+        await invoke("git_apply", { folder, action });
+        if (action.type === "commit") message.value = "";
+      }
       showStatus(done);
     } catch (error) {
-      showStatus(String(error), true);
+      showStatus(committed ? `Commit créé. Push impossible — ${error}` : String(error), true);
     } finally {
       pending = false;
       syncControls();
@@ -163,6 +183,11 @@ window.createGitPanel = function createGitPanel(openChangedFile, canRun) {
   push.onclick = () => {
     const target = snapshot?.push_destination;
     if (target) run({ type: "push", destination: target }, `Push terminé vers ${target.remote}/${target.branch}.`);
+  };
+  commitPush.onclick = () => {
+    const target = snapshot?.push_destination;
+    if (target) run({ type: "commit_push", message: message.value, destination: target },
+      `Commit créé et poussé vers ${target.remote}/${target.branch}.`);
   };
   return {
     get busy() { return pending; },

@@ -401,6 +401,12 @@ pub(crate) fn write_new_file(path: &Path, content: &str) -> io::Result<()> {
 }
 
 #[tauri::command]
+pub(crate) fn create_vault_directory(vault_path: String, rel_path: String) -> Result<(), String> {
+    let dir = vault_file(&vault_path, &rel_path)?;
+    fs::create_dir(dir).map_err(|error| format!("Impossible de créer le dossier — {error}"))
+}
+
+#[tauri::command]
 pub(crate) fn create_web_project(vault_path: String, name: String) -> Result<String, String> {
     if name.is_empty()
         || name.starts_with('.')

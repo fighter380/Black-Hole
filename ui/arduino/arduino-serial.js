@@ -1,10 +1,11 @@
 "use strict";
 
 window.ArduinoSerial = {
-  create(onPortChange) {
+  create(onPortChange, onPanelChange) {
     const { invoke, Channel } = window.__TAURI__.core;
     const byId = id => document.getElementById(id);
     const controls = byId("arduino-console-controls");
+    const portPicker = byId("arduino-port-picker");
     const heading = byId("studio-console-heading");
     const buildOutput = byId("console-output");
     const buildTab = byId("arduino-build-tab");
@@ -36,6 +37,7 @@ window.ArduinoSerial = {
       const connected = phase === "on";
       const changing = phase === "opening" || phase === "closing";
       controls.hidden = !shown;
+      portPicker.hidden = !shown;
       heading.hidden = serialShown;
       buildOutput.hidden = serialShown;
       buildTab.setAttribute("aria-pressed", String(!serialShown));
@@ -54,6 +56,7 @@ window.ArduinoSerial = {
     function setPanel(next) {
       panel = next;
       render();
+      onPanelChange();
     }
 
     async function refreshPorts() {

@@ -46,6 +46,7 @@ fn main() {
             vault::read_web_files,
             vault::save_file,
             vault::create_web_project,
+            vault::create_vault_directory,
             vault::delete_file,
             vault::list_graph_links,
             vault::set_graph_link,
