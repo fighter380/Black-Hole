@@ -1,0 +1,156 @@
+body {
+  --lab-rail: 54px;
+  --lab-side: clamp(230px, 25vw, 340px);
+  --lab-left: var(--lab-rail);
+  --lab-content-top: 54px;
+  --lab-panel: #1d1e22;
+  --lab-bar: #232429;
+  --lab-surface: #292b31;
+  --lab-border: #373941;
+  --interactive-accent: #9e88ef;
+}
+body.has-sidebar { --lab-left: calc(var(--lab-rail) + var(--lab-side)); }
+#map-root, .is-files-view #map-root { position: fixed; inset: 0 0 0 var(--lab-left); width: auto; height: auto; }
+
+.lab-rail {
+  position: fixed; inset: 0 auto 0 0; width: var(--lab-rail); z-index: 1160;
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  padding: 62px 4px 8px; border-right: 1px solid var(--lab-border); background: #1b1c20;
+}
+.lab-rail-button {
+  width: 42px; min-height: 43px; position: relative; display: grid; place-items: center;
+  background: transparent; border: 1px solid transparent; border-radius: 9px; color: #bfc0c9; cursor: pointer;
+}
+.lab-rail-button:hover { color: #fff; background: #2c2d33; }
+.lab-rail-button[aria-pressed="true"] { color: #ded5ff; background: #33313c; border-color: #4b4659; }
+.lab-rail-button:focus-visible { outline: 2px solid #bcafff; outline-offset: 1px; }
+.lab-rail-button svg { width: 23px; height: 23px; }
+.lab-rail .lab-version { margin-top: auto; padding-block: 4px; gap: 2px; font-size: 10px; }
+#git-rail-count { position: absolute; right: 0; bottom: 0; padding: 0 4px; border-radius: 8px; background: #5d507c; color: #fff; font-size: 10px; }
+#app-version-indicator { position: absolute; right: 4px; top: 4px; }
+
+.lab-topbar {
+  position: fixed; inset: 0 0 auto var(--lab-rail); z-index: 1130;
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(145px, 340px) minmax(0, 1fr); align-items: center;
+  min-height: var(--lab-content-top); padding: 7px 12px; gap: 8px;
+  background: #1b1c20ed; border-bottom: 1px solid var(--lab-border);
+}
+.lab-project-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.lab-project-title span { flex-shrink: 0; font-weight: 600; letter-spacing: -.015em; }
+.lab-project-title select { max-width: 214px; width: 100%; min-width: 0; }
+.lab-topbar > #btn-reload { justify-self: end; }
+.lab-search-wrap > svg { position: absolute; inset: 9px auto auto 10px; width: 17px; height: 17px; color: #aaaab6; pointer-events: none; }
+.lab-search-wrap kbd { position: absolute; inset: 7px 7px auto auto; padding: 2px 5px; background: #303138; border-radius: 5px; color: #c1c0cb; font-size: 11px; pointer-events: none; }
+#lab-search { min-height: 34px; background: #24252a; border-color: var(--lab-border); border-radius: 8px; padding: 5px 63px 5px 32px; }
+.lab-graph-controls {
+  position: fixed; inset: auto auto 14px calc(var(--lab-left) + (100% - var(--lab-left)) / 2);
+  z-index: 1140; transform: translateX(-50%);
+  display: flex; padding: 6px; gap: 6px; align-items: center;
+  border: 1px solid var(--lab-border); border-radius: 16px; background: #202125f7; box-shadow: var(--shadow-s);
+}
+.is-files-view .lab-graph-controls {
+  inset: 9px 53px auto auto; transform: none; padding: 0;
+  border: 0; background: transparent; box-shadow: none;
+}
+.lab-graph-controls .lab-btn:is([aria-pressed="true"], .is-active) { background: #39334f; border-color: #766697; }
+.lab-link-status { top: auto; bottom: 72px; right: 14px; background: #23242b; border-color: #625878; }
+
+.lab-drawer {
+  position: fixed; inset: var(--lab-content-top) 0 0 var(--lab-left);
+  z-index: 1110; border: 0; border-radius: 0; box-shadow: none; background: var(--lab-panel);
+}
+.lab-explorer {
+  position: fixed; inset: var(--lab-content-top) auto 0 var(--lab-rail); width: var(--lab-side);
+  z-index: 1120; border: 0; border-right: 1px solid var(--lab-border); border-radius: 0; background: #1c1d21;
+}
+.lab-explorer-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; }
+.lab-explorer-header, .lab-drawer-header, .lab-open-tabs { background: var(--lab-bar); border-color: var(--lab-border); }
+.lab-files-empty { position: fixed; inset: var(--lab-content-top) 0 0 var(--lab-left); background: var(--lab-panel); }
+.lab-sidebar-tabs { border-color: var(--lab-border); }
+.lab-sidebar-tabs [aria-pressed="true"] { background: #373344; border-color: #57516a; }
+.lab-tree-file[aria-current="true"], .lab-open-tab.is-active { background: #363342; border-color: #555064; }
+.lab-btn, .lab-control { background: var(--lab-surface); color: #ececf3; border-color: var(--lab-border); }
+.lab-btn:hover { border-color: #626470; background: #363841; }
+.lab-btn-run { background: #6455a2; border-color: #8875c5; color: #fff; }
+.lab-btn-run:hover { background: #7967bd; border-color: #ae9ae6; }
+.lab-drawer:not(.is-arduino):not(.is-web) #btn-run { background: #375f4d; border-color: #517e67; }
+.lab-drawer-actions { flex-wrap: wrap; flex-shrink: 1; }
+.lab-editor-host, .lab-editor-stage, .lab-gutter, #web-editor-host .cm-editor { background: #202125; }
+.lab-console { background: #18191d; }
+.lab-console-header { background: var(--lab-bar); color: #d3d2dc; }
+.lab-console-header, .lab-console-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.lab-console-actions .lab-btn { min-height: 23px; padding: 2px 6px; font-size: 11px; }
+.lab-console-output { color: #e4e4ed; }
+
+.lab-new-dialog {
+  width: min(640px, calc(100vw - 30px)); max-height: calc(100vh - 28px); padding: 0; overflow: auto;
+  background: #24252a; color: #f1f0f5; border: 1px solid #464851; border-radius: 13px; box-shadow: var(--shadow-l);
+}
+.lab-new-dialog::backdrop { background: #101117ad; }
+.lab-new-dialog header { display: flex; justify-content: space-between; align-items: center; padding: 18px 20px 12px; }
+.lab-new-dialog h2 { margin: 0; font-size: 21px; font-weight: 550; }
+.lab-new-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 8px 20px 20px; }
+.lab-new-options button { display: flex; align-items: center; gap: 10px; min-height: 59px; font-size: 13px; text-align: left; white-space: normal; }
+.lab-new-options button span { padding: 6px; border-radius: 7px; min-width: 33px; text-align: center; color: #cbc3ee; background: #353541; }
+.lab-new-dialog footer { padding: 11px 20px; border-top: 1px solid var(--lab-border); }
+.lab-new-dialog footer button { width: 100%; display: flex; align-items: center; justify-content: space-between; white-space: normal; }
+.lab-new-dialog kbd { color: #c6c4d0; font-size: 11px; }
+
+.lab-git-panel { display: flex; flex-direction: column; padding: 12px 10px; }
+.lab-git-panel[hidden] { display: none; }
+.lab-git-ready { padding: 9px 4px; color: #ccc1f4; }
+#git-controls { margin-top: auto; padding-top: 8px; }
+.lab-git-context, .lab-git-header { border-color: var(--lab-border); }
+.lab-git-marker { justify-self: center; padding: 2px 4px; background: #45404e; border-radius: 5px; }
+.lab-git-marker[data-status="M"] { background: #544226; color: #ecca8b; }
+.lab-git-marker:is([data-status="A"],[data-status="?"]) { background: #284738; }
+#git-changes li { grid-template-columns: 24px minmax(0, 1fr) 24px; }
+.lab-git-check { margin: 0 auto; width: 15px; height: 15px; accent-color: #8d76d2; }
+
+.lab-drawer.is-arduino .lab-workspace { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); grid-template-rows: minmax(0, 1fr); }
+.lab-arduino-tools {
+  grid-area: 1 / 2; display: flex; flex-direction: column; min-width: 0; min-height: 0;
+  border-left: 1px solid var(--lab-border); background: var(--lab-panel);
+}
+.lab-arduino-tools[hidden], .lab-arduino-tabs[hidden], .lab-serial-port-picker[hidden] { display: none; }
+.lab-arduino-tabs { flex: 0 0 auto; flex-wrap: wrap; padding: 7px 8px; background: var(--lab-bar); border-bottom: 1px solid var(--lab-border); }
+.lab-arduino-tabs button:not(:last-child) { flex: 1; }
+.lab-arduino-tabs [aria-expanded="true"]:first-child, .lab-arduino-tabs [aria-pressed="true"] { background: #373344; border-color: #615776; }
+.lab-arduino-tools .lab-schematic { flex: 1; border: 0; background: #1c1d22; }
+.lab-schematic-header h2 { font-size: 13px; }
+.lab-schematic-toolbar, .lab-component-picker { background: #25262d; border-bottom: 1px solid var(--lab-border); }
+.lab-component-picker { flex-shrink: 0; padding: 6px 9px; font-size: 12px; }
+.lab-component-picker summary { color: #dad7e4; cursor: pointer; }
+.lab-components { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.lab-components .lab-btn { min-height: 26px; padding: 3px 6px; }
+.lab-components .lab-btn[aria-pressed="true"] { background: #4a3b6a; border-color: #9d8ac4; }
+.lab-schematic-sheet { min-height: 130px; padding: 0; background: #181a20; }
+#schematic-canvas {
+  min-width: 270px; border: 0; border-radius: 0;
+  background: linear-gradient(#30323a 1px, transparent 1px) 0 0 / 16px 16px,
+    linear-gradient(90deg, #30323a 1px, transparent 1px) 0 0 / 16px 16px, #1a1b20;
+}
+#schematic-canvas.is-placing, #schematic-canvas.is-placing * { cursor: crosshair; }
+.lab-arduino-tools .lab-console { flex-shrink: 0; height: clamp(150px, 25vh, 245px); }
+.lab-arduino-tools:has(.lab-schematic[hidden]) .lab-console { flex: 1; height: auto; }
+@container (max-width: 740px) {
+  .lab-drawer.is-arduino .lab-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(112px, 1fr) minmax(245px, 1.4fr); overflow: auto; }
+  .lab-arduino-tools { grid-area: 2 / 1; border-left: 0; border-top: 1px solid var(--lab-border); }
+}
+@media (max-width: 780px) { body { --lab-side: 210px; } }
+@media (max-width: 760px) {
+  body { --lab-content-top: 91px; }
+  .lab-rail { padding-top: var(--lab-content-top); }
+  .lab-topbar { grid-template-columns: minmax(0, 1fr) auto; gap: 5px; }
+  .lab-topbar .lab-search-wrap { grid-area: 2 / 1 / 3 / -1; }
+}
+@media (max-width: 560px) {
+  body { --lab-rail: 43px; }
+  body.has-sidebar { --lab-left: var(--lab-rail); }
+  .lab-rail-button { width: 34px; }
+  .lab-project-title select { max-width: min(130px, 32vw); }
+  .is-files-view .lab-graph-controls { inset: auto 9px 9px auto; }
+  .lab-graph-controls { max-width: calc(100% - var(--lab-rail) - 14px); flex-wrap: wrap; justify-content: center; }
+  .lab-new-options { gap: 6px; padding-inline: 12px; }
+  .lab-new-options button { gap: 4px; padding-inline: 5px; }
+}
