@@ -11,8 +11,8 @@ import { bracketMatching, foldGutter, foldKeymap, indentOnInput } from "@codemir
 import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from "@codemirror/view";
-import { colorSwatches, editWebColor } from "./color-swatches.js";
-import { arduinoCompletion } from "./arduino-completion.js";
+import { colorSwatches, editWebColor } from "../web/color-swatches.js";
+import { arduinoCompletion } from "../arduino/arduino-completion.js";
 
 const workerURL = new URL("javascript-worker.js", document.currentScript.src);
 let worker;

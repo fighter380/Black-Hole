@@ -1,4 +1,5 @@
-use super::{command_without_console, vault_file, write_new_file};
+use crate::command_without_console;
+use crate::workspace::vault::{vault_file, write_new_file};
 use serde::Serialize;
 use std::fs;
 use std::io::{self, Read};

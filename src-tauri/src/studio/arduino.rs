@@ -1,4 +1,5 @@
-use super::{command_without_console, replace_file_atomically, vault_file, write_new_file};
+use crate::command_without_console;
+use crate::workspace::vault::{replace_file_atomically, vault_file, write_new_file};
 use serde::Serialize;
 use serde_json::Value;
 use std::env;

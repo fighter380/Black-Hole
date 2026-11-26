@@ -5,8 +5,11 @@ window.createGitPanel = function createGitPanel(openChangedFile, canRun) {
   const el = id => document.getElementById(id);
   const panel = el("git-panel");
   const refreshButton = el("git-refresh");
+  const project = el("git-project");
+  const context = el("git-context");
   const branch = el("git-branch");
   const repository = el("git-repository");
+  const destination = el("git-destination");
   const notice = el("git-status");
   const controls = el("git-controls");
   const commit = el("git-commit");
@@ -34,7 +37,7 @@ window.createGitPanel = function createGitPanel(openChangedFile, canRun) {
     commit.disabled = busy || !message.value.trim() ||
       !snapshot?.changes.some(file => !file.conflict && file.index !== ".") ||
       snapshot.changes.some(file => file.conflict);
-    push.disabled = busy || !snapshot?.repository || snapshot.detached;
+    push.disabled = busy || !snapshot?.push_destination;
     for (const button of changes.querySelectorAll(".lab-git-file-action")) button.disabled = busy;
   }
 
@@ -82,12 +85,19 @@ window.createGitPanel = function createGitPanel(openChangedFile, canRun) {
 
   function render() {
     controls.hidden = !snapshot?.repository;
-    branch.textContent = snapshot?.detached ? "HEAD détachée" : snapshot?.branch || "Git";
+    context.hidden = controls.hidden;
+    project.textContent = snapshot?.repository?.split(/[\\/]/).filter(Boolean).pop() || "Git";
+    project.title = snapshot?.repository || "";
+    branch.textContent = snapshot?.detached ? "HEAD détachée" : snapshot?.branch || "";
     repository.textContent = snapshot?.repository || "";
-    repository.title = [repository.textContent, snapshot?.upstream].filter(Boolean).join("\n");
     if (snapshot?.upstream && (snapshot.ahead || snapshot.behind)) {
       branch.textContent += ` ↑${snapshot.ahead} ↓${snapshot.behind}`;
     }
+    const target = snapshot?.push_destination;
+    destination.textContent = target
+      ? [`${target.remote} → ${target.branch}`, ...target.addresses].join("\n")
+      : snapshot?.push_problem || (snapshot?.detached ? "Sélectionne une branche." : "Aucun dépôt distant configuré.");
+    push.title = target ? `Pousser vers ${target.remote}/${target.branch}` : destination.textContent;
     changes.replaceChildren();
     if (snapshot?.repository) {
       const staged = snapshot.changes.filter(file => !file.conflict && file.index !== ".");
@@ -150,7 +160,10 @@ window.createGitPanel = function createGitPanel(openChangedFile, canRun) {
   refreshButton.onclick = () => { showStatus(""); refresh(); };
   message.oninput = syncControls;
   commit.onclick = () => run({ type: "commit", message: message.value }, "Commit créé.");
-  push.onclick = () => run({ type: "push" }, "Push terminé.");
+  push.onclick = () => {
+    const target = snapshot?.push_destination;
+    if (target) run({ type: "push", destination: target }, `Push terminé vers ${target.remote}/${target.branch}.`);
+  };
   return {
     get busy() { return pending; },
     show(visible) {

@@ -67,6 +67,25 @@ body { --lab-content-top: 60px; }
 .lab-graph-controls { display: flex; align-items: center; gap: 6px; }
 .lab-navigation { grid-area: navigation; }
 .lab-shortcuts { grid-area: shortcuts; justify-self: end; }
+.lab-new-menu { position: relative; }
+.lab-new-menu summary { display: flex; align-items: center; gap: 4px; list-style: none; }
+.lab-new-menu summary::-webkit-details-marker { display: none; }
+.lab-new-options {
+  position: absolute;
+  inset-block-start: calc(100% + 5px);
+  inset-inline-start: 0;
+  z-index: 2;
+  display: grid;
+  min-width: 150px;
+  gap: 3px;
+  padding: 5px;
+  border: 1px solid #3a3148;
+  border-radius: 9px;
+  background: #1b1723;
+  box-shadow: var(--shadow-l);
+}
+.lab-new-menu:not([open]) .lab-new-options { display: none; }
+.lab-new-options button { text-align: left; }
 .lab-topbar .lab-search-wrap { grid-area: search; width: min(100%, 420px); justify-self: center; }
 .lab-graph-controls {
   position: fixed;
@@ -328,14 +347,17 @@ body { --lab-content-top: 60px; }
 
 .lab-git-panel { flex: 1; min-height: 0; overflow: auto; padding: 8px; }
 .lab-git-header { justify-content: space-between; min-width: 0; }
-.lab-git-header strong, #git-repository {
+.lab-git-header strong {
   display: block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-#git-repository { color: #b5a7c3; }
+.lab-git-context { margin: 4px 0 9px; padding: 0 0 6px; border-bottom: 1px solid #312737; font-size: 12px; }
+.lab-git-context > div + div { margin-top: 5px; }
+.lab-git-context dt { color: #b5a7c3; }
+.lab-git-context dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 .lab-git-status { white-space: pre-wrap; overflow-wrap: anywhere; color: #beabd1; font-size: 12px; }
 .lab-git-status.has-error { color: #ffaaa6; }
 .lab-git-status:empty { display: none; }
@@ -566,7 +588,7 @@ body { --lab-content-top: 60px; }
   .lab-version-name { display: none; }
 }
 
-@media (max-width: 1160px) {
+@media (max-width: 1180px) {
   body { --lab-content-top: 101px; }
   .lab-topbar {
     grid-template-columns: minmax(0, 1fr) auto;

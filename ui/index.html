@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Second Brain Black Hole — Code Lab</title>
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="app.css" />
+  <link rel="stylesheet" href="graph/black-hole-map.css" />
+  <link rel="stylesheet" href="shell/app.css" />
 </head>
 <body>
   <div id="map-root" class="view-content"></div>
@@ -21,7 +21,14 @@
         <button id="view-files" class="sbbh-toolbar-button lab-view-tab" type="button" aria-pressed="false">Fichiers</button>
       </nav>
       <div class="lab-folder-actions">
-        <button id="btn-new" class="sbbh-toolbar-button" type="button">+ Nouveau</button>
+        <details id="new-menu" class="lab-new-menu">
+          <summary class="sbbh-toolbar-button">+ Nouveau <span aria-hidden="true">▾</span></summary>
+          <div class="lab-new-options" aria-label="Type de création">
+            <button id="btn-new" class="lab-btn" type="button">Fichier</button>
+            <button id="btn-new-site" class="lab-btn" type="button">Site Web</button>
+            <button id="btn-new-arduino" class="lab-btn" type="button">Projet Arduino</button>
+          </div>
+        </details>
         <button id="btn-link-stars" class="sbbh-toolbar-button lab-graph-only" type="button" aria-pressed="false" title="Relier ou délier deux fichiers">Relier</button>
         <button id="btn-vault" class="sbbh-toolbar-button" type="button" title="Ouvrir un dossier externe">Dossier</button>
       </div>
@@ -31,8 +38,6 @@
       <div id="lab-search-results" class="lab-search-results" hidden></div>
     </div>
     <div class="lab-shortcuts">
-      <button id="btn-new-site" class="sbbh-toolbar-button" type="button">+ Site Web</button>
-      <button id="btn-new-arduino" class="sbbh-toolbar-button" type="button">+ Arduino</button>
       <button id="btn-reload" class="sbbh-toolbar-button" type="button" title="Rescanner les fichiers" aria-label="Rescanner les fichiers">↻</button>
     </div>
   </div>
@@ -57,10 +62,14 @@
     <div id="vault-tree" class="lab-tree"></div>
     <section id="git-panel" class="lab-git-panel" aria-label="Gestion des versions Git" hidden>
       <div class="lab-git-header">
-        <strong id="git-branch"></strong>
+        <strong id="git-project">Git</strong>
         <button id="git-refresh" class="lab-btn" type="button" aria-label="Actualiser Git" title="Actualiser Git">↻</button>
       </div>
-      <small id="git-repository"></small>
+      <dl id="git-context" class="lab-git-context" hidden>
+        <div><dt>Dépôt local</dt><dd id="git-repository"></dd></div>
+        <div><dt>Branche</dt><dd id="git-branch"></dd></div>
+        <div><dt>Destination du push</dt><dd id="git-destination"></dd></div>
+      </dl>
       <p id="git-status" class="lab-git-status" role="status"></p>
       <div id="git-controls" hidden>
         <textarea id="git-message" class="lab-control" rows="2" aria-label="Message de commit" placeholder="Message de commit"></textarea>
@@ -248,15 +257,15 @@
     </div>
   </dialog>
 
-  <script src="color-picker.js"></script>
-  <script src="web-preview.js"></script>
-  <script src="vault-explorer.js"></script>
-  <script src="git-panel.js"></script>
+  <script src="studio/color-picker.js"></script>
+  <script src="studio/web-preview.js"></script>
+  <script src="workspace/vault-explorer.js"></script>
+  <script src="workspace/git-panel.js"></script>
   <script src="editor/web-editor.js"></script>
-  <script src="arduino-serial.js"></script>
-  <script src="arduino-circuit.js"></script>
-  <script src="arduino-schematic.js"></script>
-  <script src="app.js"></script>
-  <script src="updates.js"></script>
+  <script src="arduino/arduino-serial.js"></script>
+  <script src="arduino/arduino-circuit.js"></script>
+  <script src="arduino/arduino-schematic.js"></script>
+  <script src="shell/app.js"></script>
+  <script src="release/updates.js"></script>
 </body>
 </html>

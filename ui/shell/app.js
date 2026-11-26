@@ -878,7 +878,8 @@ async function openFileInStudio(fileObj) {
       const content = await invoke("read_file", { vaultPath: root, relPath: fileObj.path });
       if (request !== fileOpenRequest || root !== vaultPath) return;
       const text = content.replace(/\r\n?/g, "\n");
-      doc = { file: fileObj, text, saved: text, position: null, console: null };
+      const lineEnding = content.match(/\r\n|\n|\r/)?.[0] ?? "\n";
+      doc = { file: fileObj, text, saved: text, lineEnding, position: null, console: null };
       openDocuments.set(fileObj.path, doc);
     }
     drawer.hidden = false;
@@ -1138,11 +1139,14 @@ async function runCurrentCode() {
 }
 
 async function persistDocument(doc, root) {
-  const content = doc.text;
+  if (!isDirty(doc)) return false;
+  const text = doc.text;
+  const content = doc.lineEnding === "\n" ? text : text.replaceAll("\n", doc.lineEnding);
   await invoke("save_file", { vaultPath: root, relPath: doc.file.path, content });
-  doc.saved = content;
+  doc.saved = text;
   updateTabDirtyState(doc);
   gitPanel.refreshSoon();
+  return true;
 }
 
 async function saveCurrentFile(silent = false) {
@@ -1154,7 +1158,7 @@ async function saveCurrentFile(silent = false) {
   fileOperation = true;
   fileOpenRequest++;
   try {
-    await persistDocument(doc, root);
+    const changed = await persistDocument(doc, root);
     if (!silent) {
       if (WEB_EXTENSIONS.has(file.ext)) {
         btnSave.textContent = "Sauvé ✓";
@@ -1163,7 +1167,7 @@ async function saveCurrentFile(silent = false) {
       } else {
         setDocumentConsole(doc, doc.console?.text ?? "", "Sauvegardé ✓", doc.console?.error);
       }
-      await reloadVault();
+      if (changed) await reloadVault();
     }
     return true;
   } catch (err) {
@@ -1528,6 +1532,21 @@ btnArduinoSchematic.onclick = async () => {
   }
 };
 
+const newMenu = document.getElementById("new-menu");
+newMenu.addEventListener("click", event => {
+  if (event.target.closest(".lab-new-options button")) newMenu.open = false;
+});
+newMenu.addEventListener("keydown", event => {
+  if (event.key === "Escape" && newMenu.open) {
+    event.preventDefault();
+    newMenu.open = false;
+    newMenu.querySelector("summary").focus();
+  }
+});
+document.addEventListener("click", event => {
+  if (newMenu.open && !newMenu.contains(event.target)) newMenu.open = false;
+});
+
 document.getElementById("btn-new").onclick = () => {
   const project = !drawer.hidden && WEB_EXTENSIONS.has(currentFile?.ext)
     ? webProjectPath(currentFile.path)
@@ -1720,7 +1739,7 @@ window.addEventListener("keydown", (e) => {
   updateFolderPicker();
   await reloadVault().catch(error => alert(String(error)));
 
-  let mainSource = await fetch("./main.js").then((r) => r.text());
+  let mainSource = await fetch("./graph/black-hole-map.js").then((r) => r.text());
 
   // Optimisations RAM & GPU en mémoire (sans toucher à main.js sur disque) :
   // 1) Texture ciel 1024x512 au lieu de 4096x2048

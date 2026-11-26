@@ -1,4 +1,4 @@
-use super::command_without_console;
+use crate::command_without_console;
 use serde::{Deserialize, Serialize};
 use std::path::{Component, Path};
 use std::process::{Output, Stdio};
@@ -12,6 +12,8 @@ pub struct GitStatus {
     ahead: usize,
     behind: usize,
     detached: bool,
+    push_destination: Option<PushDestination>,
+    push_problem: Option<String>,
     changes: Vec<Change>,
 }
 
@@ -30,7 +32,19 @@ pub enum GitAction {
     Stage { paths: Vec<String> },
     Unstage { paths: Vec<String> },
     Commit { message: String },
-    Push,
+    Push { destination: PushDestination },
+}
+
+#[derive(Deserialize, Serialize, PartialEq, Eq)]
+pub struct PushDestination {
+    remote: String,
+    branch: String,
+    addresses: Vec<String>,
+}
+
+struct PushPlan {
+    destination: PushDestination,
+    set_upstream: bool,
 }
 
 fn git(folder: &str, args: &[&str]) -> Result<Output, String> {
@@ -155,7 +169,98 @@ fn status(folder: &str) -> Result<GitStatus, String> {
             });
         }
     }
+    if !status.detached {
+        let root = status.repository.as_deref().unwrap_or(folder);
+        match push_plan(root, &status.branch) {
+            Ok(plan) => status.push_destination = plan.map(|plan| plan.destination),
+            Err(error) => status.push_problem = Some(error),
+        }
+    }
     Ok(status)
+}
+
+fn display_address(address: &str) -> String {
+    if address
+        .split_once("::")
+        .is_some_and(|(helper, _)| helper.bytes().all(|byte| byte.is_ascii_alphanumeric()))
+    {
+        return "Adresse de push personnalisée".into();
+    }
+    if address.contains("://") {
+        let Ok(mut url) = tauri::Url::parse(address) else {
+            return "Adresse de push personnalisée".into();
+        };
+        if url.cannot_be_a_base() {
+            return "Adresse de push personnalisée".into();
+        }
+        if url.set_username("").is_err() && !url.username().is_empty()
+            || url.set_password(None).is_err() && url.password().is_some()
+        {
+            return "Adresse de push personnalisée".into();
+        }
+        url.set_query(None);
+        url.set_fragment(None);
+        return url.to_string();
+    }
+    if let Some((user, host_path)) = address.split_once('@') {
+        if !user.contains(['/', '\\', ':']) && host_path.contains(':') {
+            return host_path.into();
+        }
+    }
+    address.into()
+}
+
+fn push_plan(root: &str, branch: &str) -> Result<Option<PushPlan>, String> {
+    let remote = git(
+        root,
+        &["config", "--get", &format!("branch.{branch}.remote")],
+    )?;
+    let set_upstream = remote.status.code() == Some(1);
+    let (remote, target) = if set_upstream {
+        ("origin".into(), branch.to_owned())
+    } else {
+        let remote = checked(remote)?;
+        let target = checked(git(
+            root,
+            &["config", "--get", &format!("branch.{branch}.merge")],
+        )?)?;
+        let target = target.trim_end_matches(['\r', '\n']);
+        let target = target
+            .strip_prefix("refs/heads/")
+            .filter(|target| !target.is_empty() && !target.contains(['\r', '\n']))
+            .ok_or("La branche amont n’est pas une branche Git distante.")?;
+        (
+            remote.trim_end_matches(['\r', '\n']).to_owned(),
+            target.to_owned(),
+        )
+    };
+    let addresses = if remote == "." {
+        vec![root.to_owned()]
+    } else {
+        let urls = git(
+            root,
+            &["remote", "get-url", "--push", "--all", "--", &remote],
+        )?;
+        if !urls.status.success() && set_upstream {
+            return Ok(None);
+        }
+        checked(urls)?
+            .lines()
+            .filter(|line| !line.is_empty())
+            .map(display_address)
+            .collect()
+    };
+    if addresses.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(PushPlan {
+        destination: PushDestination {
+            remote,
+            branch: target,
+            addresses,
+        },
+        set_upstream,
+    }))
 }
 
 fn path_args(paths: &[String]) -> Result<Vec<&str>, String> {
@@ -201,50 +306,28 @@ fn apply(folder: &str, action: GitAction) -> Result<(), String> {
             }
             git(&root, &["commit", "-m", message])?
         }
-        GitAction::Push => {
+        GitAction::Push { destination } => {
             let head = git(&root, &["symbolic-ref", "--quiet", "--short", "HEAD"])?;
             if !head.status.success() {
                 return Err("Sélectionne une branche avant de pousser.".into());
             }
             let branch = checked(head)?;
             let branch = branch.trim_end_matches(['\r', '\n']);
-            let remote = git(
-                &root,
-                &["config", "--get", &format!("branch.{branch}.remote")],
-            )?;
-            if remote.status.success() {
-                let remote = checked(remote)?;
-                let target = checked(git(
-                    &root,
-                    &["config", "--get", &format!("branch.{branch}.merge")],
-                )?)?;
-                let target = target.trim_end_matches(['\r', '\n']);
-                if !target.starts_with("refs/heads/") || target.contains('\n') {
-                    return Err("La branche amont n’est pas une branche Git distante.".into());
-                }
-                git(
-                    &root,
-                    &[
-                        "push",
-                        "--porcelain",
-                        "--",
-                        remote.trim_end_matches(['\r', '\n']),
-                        &format!("HEAD:{target}"),
-                    ],
-                )?
-            } else {
-                git(
-                    &root,
-                    &[
-                        "push",
-                        "--porcelain",
-                        "--set-upstream",
-                        "--",
-                        "origin",
-                        "HEAD",
-                    ],
-                )?
+            let plan = push_plan(&root, branch)?
+                .ok_or("Configure un dépôt distant avant d’effectuer un push.")?;
+            if plan.destination != destination {
+                return Err(
+                    "La destination du push a changé. Vérifie la destination affichée et réessaie."
+                        .into(),
+                );
             }
+            let refspec = format!("HEAD:refs/heads/{}", plan.destination.branch);
+            let mut args = vec!["push", "--porcelain"];
+            if plan.set_upstream {
+                args.push("--set-upstream");
+            }
+            args.extend(["--", &plan.destination.remote, &refspec]);
+            git(&root, &args)?
         }
     };
     checked(output).map(|_| ())
