@@ -306,6 +306,52 @@ body { --lab-content-top: 60px; }
   white-space: nowrap;
 }
 
+.lab-folder-picker,
+.lab-git-header,
+.lab-git-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.lab-folder-picker select { flex: 1; min-width: 0; }
+.lab-folder-picker .lab-btn { padding-inline: 8px; }
+
+.lab-sidebar-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #312737;
+}
+.lab-sidebar-tabs .lab-btn { flex: 1; min-width: 0; padding-inline: 4px; }
+.lab-sidebar-tabs [aria-pressed="true"] { background: #37234d; border-color: #7653a2; }
+.lab-tree[hidden], .lab-git-panel[hidden] { display: none; }
+
+.lab-git-panel { flex: 1; min-height: 0; overflow: auto; padding: 8px; }
+.lab-git-header { justify-content: space-between; min-width: 0; }
+.lab-git-header strong, #git-repository {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#git-repository { color: #b5a7c3; }
+.lab-git-status { white-space: pre-wrap; overflow-wrap: anywhere; color: #beabd1; font-size: 12px; }
+.lab-git-status.has-error { color: #ffaaa6; }
+.lab-git-status:empty { display: none; }
+#git-message { width: 100%; min-height: 52px; margin-block: 8px 5px; resize: vertical; font: inherit; }
+.lab-git-actions { flex-wrap: wrap; }
+#git-changes h3 { margin: 14px 0 5px; color: #cebfdd; font-size: 11px; }
+#git-changes ul { margin: 0; padding: 0; list-style: none; }
+#git-changes li { display: grid; grid-template-columns: 16px minmax(0, 1fr) auto; gap: 4px; align-items: center; }
+.lab-git-marker { text-align: center; color: #bfa0ee; font: 11px var(--font-monospace); }
+.lab-git-marker:is([data-status="A"],[data-status="?"]) { color: #8dddba; }
+.lab-git-marker:is([data-status="D"],[data-status="U"]) { color: #ffaaa6; }
+.lab-git-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; color: inherit; border: 0; border-radius: 5px; padding: 6px 2px; background: transparent; cursor: pointer; }
+.lab-git-path:hover { background: #2b203b; }
+.lab-git-path:focus-visible { outline: 2px solid #c99bff; outline-offset: -2px; }
+.lab-git-file-action { min-height: 24px; min-width: 25px; padding: 1px 4px; }
+
 .lab-tree {
   flex: 1;
   min-height: 0;

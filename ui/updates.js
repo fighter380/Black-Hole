@@ -105,7 +105,7 @@
       showState("available", "Enregistre ton schéma Arduino avant l’installation.");
       return false;
     }
-    if (!hasUnsavedDocuments() && !fileOperation && !graphLinkPending && !pythonRunning && !arduinoCompiling) return true;
+    if (!hasUnsavedDocuments() && !fileOperation && !graphLinkPending && !gitPanel.busy && !pythonRunning && !arduinoCompiling) return true;
     showState("available", "Enregistre tes fichiers et termine les exécutions avant l’installation.");
     return false;
   }

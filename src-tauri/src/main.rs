@@ -9,12 +9,35 @@ use std::process::Command;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::UNIX_EPOCH;
+use tauri_plugin_dialog::DialogExt;
 use walkdir::{DirEntry, WalkDir};
 
 mod arduino;
 mod python;
 mod serial;
+mod source_control;
 mod updates;
+
+#[tauri::command]
+async fn choose_vault_folder(window: tauri::WebviewWindow) -> Result<Option<String>, String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        window
+            .dialog()
+            .file()
+            .set_title("Ajouter un dossier à Black Hole")
+            .set_parent(&window)
+            .blocking_pick_folder()
+            .map(|folder| {
+                let path = folder.into_path().map_err(|error| error.to_string())?;
+                path.into_os_string()
+                    .into_string()
+                    .map_err(|_| "Le chemin du dossier ne peut pas être affiché.".into())
+            })
+            .transpose()
+    })
+    .await
+    .map_err(|error| error.to_string())?
+}
 
 fn command_without_console(program: impl AsRef<OsStr>) -> Command {
     let mut command = Command::new(program);
@@ -636,10 +659,14 @@ fn main() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_dialog::init())
         .manage(python::RunningProcess::default())
         .manage(serial::SerialMonitor::default())
         .manage(updates::DownloadedUpdate::default())
         .invoke_handler(tauri::generate_handler![
+            choose_vault_folder,
+            source_control::git_status,
+            source_control::git_apply,
             get_default_vault,
             scan_vault,
             list_vault_folders,

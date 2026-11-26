@@ -23,7 +23,7 @@
       <div class="lab-folder-actions">
         <button id="btn-new" class="sbbh-toolbar-button" type="button">+ Nouveau</button>
         <button id="btn-link-stars" class="sbbh-toolbar-button lab-graph-only" type="button" aria-pressed="false" title="Relier ou délier deux fichiers">Relier</button>
-        <button id="btn-vault" class="sbbh-toolbar-button" type="button" title="Changer le dossier analysé">Dossier</button>
+        <button id="btn-vault" class="sbbh-toolbar-button" type="button" title="Ouvrir un dossier externe">Dossier</button>
       </div>
     </div>
     <div class="lab-search-wrap">
@@ -45,9 +45,32 @@
   <aside id="file-explorer" class="lab-explorer" aria-labelledby="file-explorer-title" hidden>
     <header class="lab-explorer-header">
       <h2 id="file-explorer-title">Explorateur</h2>
-      <small id="explorer-vault"></small>
+      <div class="lab-folder-picker">
+        <select id="workspace-folders" class="lab-control" aria-label="Dossiers enregistrés"></select>
+        <button id="btn-add-folder" class="lab-btn" type="button" aria-label="Ajouter un dossier" title="Ajouter un dossier">＋</button>
+      </div>
     </header>
+    <nav class="lab-sidebar-tabs" aria-label="Panneaux de l’explorateur">
+      <button id="sidebar-files" class="lab-btn" type="button" aria-pressed="true" aria-controls="vault-tree">Fichiers</button>
+      <button id="sidebar-git" class="lab-btn" type="button" aria-pressed="false" aria-controls="git-panel">Git</button>
+    </nav>
     <div id="vault-tree" class="lab-tree"></div>
+    <section id="git-panel" class="lab-git-panel" aria-label="Gestion des versions Git" hidden>
+      <div class="lab-git-header">
+        <strong id="git-branch"></strong>
+        <button id="git-refresh" class="lab-btn" type="button" aria-label="Actualiser Git" title="Actualiser Git">↻</button>
+      </div>
+      <small id="git-repository"></small>
+      <p id="git-status" class="lab-git-status" role="status"></p>
+      <div id="git-controls" hidden>
+        <textarea id="git-message" class="lab-control" rows="2" aria-label="Message de commit" placeholder="Message de commit"></textarea>
+        <div class="lab-git-actions">
+          <button id="git-commit" class="lab-btn lab-btn-run" type="button">Commit</button>
+          <button id="git-push" class="lab-btn" type="button">Push</button>
+        </div>
+      </div>
+      <div id="git-changes"></div>
+    </section>
   </aside>
 
   <main id="files-empty" class="lab-files-empty" hidden>
@@ -228,6 +251,7 @@
   <script src="color-picker.js"></script>
   <script src="web-preview.js"></script>
   <script src="vault-explorer.js"></script>
+  <script src="git-panel.js"></script>
   <script src="editor/web-editor.js"></script>
   <script src="arduino-serial.js"></script>
   <script src="arduino-circuit.js"></script>

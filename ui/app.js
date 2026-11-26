@@ -413,6 +413,13 @@ editor.addEventListener("keydown", (e) => {
    3. État, Studio Python/Tkinter & Modes Eco RAM
    ============================================================ */
 let vaultPath = localStorage.getItem("sbbh_vault_path") || "";
+let workspaceFolders = [];
+try {
+  const storedFolders = JSON.parse(localStorage.getItem("sbbh_workspace_folders") || "[]");
+  if (Array.isArray(storedFolders)) workspaceFolders = storedFolders.filter(path => typeof path === "string" && path);
+} catch {}
+let sidebarPanel = localStorage.getItem("sbbh_sidebar_panel") === "git" ? "git" : "files";
+let choosingFolder = false;
 let filesList = [];
 let vaultFolders = [];
 let currentFile = null;
@@ -470,13 +477,23 @@ const viewGraph = document.getElementById("view-graph");
 const viewFiles = document.getElementById("view-files");
 const mapRoot = document.getElementById("map-root");
 const fileExplorer = document.getElementById("file-explorer");
-const explorerVault = document.getElementById("explorer-vault");
+const workspacePicker = document.getElementById("workspace-folders");
+const folderAdd = document.getElementById("btn-add-folder");
+const folderButton = document.getElementById("btn-vault");
+const sidebarFiles = document.getElementById("sidebar-files");
+const sidebarGit = document.getElementById("sidebar-git");
+const vaultTree = document.getElementById("vault-tree");
 const filesEmpty = document.getElementById("files-empty");
 const openEditorTabs = document.getElementById("open-editor-tabs");
 const explorer = VaultExplorer.create({
-  host: document.getElementById("vault-tree"),
+  host: vaultTree,
   onOpen: openFileInStudio,
 });
+const gitPanel = createGitPanel((path, prefix) => {
+  const file = path.startsWith(prefix) && filesList.find(file => file.path === path.slice(prefix.length));
+  if (file) openFileInStudio(file);
+  return Boolean(file);
+}, () => !fileOperation);
 let codeMirrorEditor = null;
 
 function activeDocument() {
@@ -540,10 +557,32 @@ function renderOpenTabs() {
   openEditorTabs.querySelector('[aria-current="true"]')?.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
+function updateFolderPicker() {
+  const paths = [...new Set([vaultPath, ...workspaceFolders].filter(Boolean))];
+  const names = paths.map(path => path.replace(/[\\/]+$/, "").split(/[\\/]/).pop() || path);
+  workspacePicker.replaceChildren(...paths.map((path, index) => {
+    const name = names[index];
+    const option = new Option(names.indexOf(name) !== names.lastIndexOf(name) ? path : name, path);
+    option.title = path;
+    return option;
+  }));
+  workspacePicker.value = vaultPath;
+  workspacePicker.title = vaultPath;
+  gitPanel.useFolder(vaultPath);
+}
+
 function updateExplorer() {
-  explorerVault.textContent = vaultPath.split(/[\\/]+/).filter(Boolean).pop() ?? "";
-  explorerVault.title = vaultPath;
   explorer.update(filesList, { vaultPath, folders: vaultFolders, selectedPath: currentFile?.path });
+}
+
+function showSidebarPanel(panel) {
+  sidebarPanel = panel;
+  localStorage.setItem("sbbh_sidebar_panel", panel);
+  const git = panel === "git";
+  sidebarFiles.setAttribute("aria-pressed", String(!git));
+  sidebarGit.setAttribute("aria-pressed", String(git));
+  vaultTree.hidden = git;
+  gitPanel.show(git && workspaceView === "files");
 }
 
 function updateWorkspaceVisibility() {
@@ -553,6 +592,7 @@ function updateWorkspaceVisibility() {
   viewFiles.setAttribute("aria-pressed", String(files));
   mapRoot.inert = files;
   fileExplorer.hidden = !files;
+  showSidebarPanel(sidebarPanel);
   filesEmpty.hidden = !files || !drawer.hidden;
   btnCloseDrawer.textContent = files ? "Fermer" : "Masquer";
   syncMapMotion();
@@ -1102,6 +1142,7 @@ async function persistDocument(doc, root) {
   await invoke("save_file", { vaultPath: root, relPath: doc.file.path, content });
   doc.saved = content;
   updateTabDirtyState(doc);
+  gitPanel.refreshSoon();
 }
 
 async function saveCurrentFile(silent = false) {
@@ -1291,18 +1332,26 @@ const obsidianShim = {
 
 const appInstance = buildObsidianApp();
 
-async function reloadVault() {
-  const root = vaultPath;
-  const revision = graphLinksRevision;
-  const [entries, links, folders] = await Promise.all([
+function readVault(root) {
+  return Promise.all([
     invoke("scan_vault", { vaultPath: root }),
     invoke("list_graph_links", { vaultPath: root }).catch(err => {
       if (root === vaultPath) updateGraphLinkStatus(String(err), true);
-      return savedGraphLinks;
+      return root === vaultPath ? savedGraphLinks : { manual: [], hidden: [] };
     }),
     invoke("list_vault_folders", { vaultPath: root }),
   ]);
+}
+
+async function reloadVault() {
+  const root = vaultPath;
+  const revision = graphLinksRevision;
+  const [entries, links, folders] = await readVault(root);
   if (root !== vaultPath) return;
+  applyVault(entries, revision === graphLinksRevision ? links : savedGraphLinks, folders);
+}
+
+function applyVault(entries, links, folders) {
   filesList = entries.map((e) => ({
     path: e.path,
     basename: e.basename,
@@ -1313,7 +1362,8 @@ async function reloadVault() {
   }));
   vaultFolders = folders;
   updateExplorer();
-  refreshVaultGraph(revision === graphLinksRevision ? links : savedGraphLinks);
+  refreshVaultGraph(links);
+  gitPanel.refreshSoon();
   if (!drawer.hidden && WEB_EXTENSIONS.has(currentFile?.ext)) {
     codeMirrorEditor?.invalidateProject();
     updateWebTabs();
@@ -1528,37 +1578,61 @@ document.getElementById("btn-new-arduino").onclick = () => {
   );
 };
 
-document.getElementById("btn-vault").onclick = () => {
-  openModal(
-    "Changer le dossier (Vault / Labo)",
-    "Chemin complet vers le dossier contenant tes scripts, tes sites et tes notes.",
-    vaultPath,
-    async (newPath) => {
-      if (newPath === vaultPath) return;
-      if (fileOperation || ArduinoSchematic.isSaving) return;
-      if ((hasUnsavedDocuments() || ArduinoSchematic.hasUnsavedChanges) &&
-          !confirm("Changer de dossier sans enregistrer les modifications ?")) return;
-      fileOperation = true;
-      fileOpenRequest++;
-      try {
-        await invoke("scan_vault", { vaultPath: newPath });
-        finishGraphLinkMode();
-        closeDrawer();
-        ArduinoSchematic.reset();
-        currentFile = null;
-        clearCodeMirrorEditor();
-        openDocuments.clear();
-        savedGraphLinks = { manual: [], hidden: [] };
-        renderOpenTabs();
-        vaultPath = newPath;
-        localStorage.setItem("sbbh_vault_path", vaultPath);
-        await reloadVault();
-      } finally {
-        fileOperation = false;
-      }
-    }
-  );
+async function switchFolder(newPath) {
+  if (newPath === vaultPath) return true;
+  if (fileOperation || graphLinkPending || gitPanel.busy || pythonRunning || arduinoCompiling || ArduinoSchematic.isSaving) {
+    alert("Attends la fin de l’opération en cours avant de changer de dossier.");
+    return false;
+  }
+  if ((hasUnsavedDocuments() || ArduinoSchematic.hasUnsavedChanges) &&
+      !confirm("Changer de dossier sans enregistrer les modifications ?")) return false;
+  fileOperation = true;
+  fileOpenRequest++;
+  try {
+    const [entries, links, folders] = await readVault(newPath);
+    finishGraphLinkMode();
+    closeDrawer();
+    ArduinoSchematic.reset();
+    currentFile = null;
+    clearCodeMirrorEditor();
+    openDocuments.clear();
+    renderOpenTabs();
+    vaultPath = newPath;
+    workspaceFolders = [...new Set([...workspaceFolders, newPath])];
+    localStorage.setItem("sbbh_workspace_folders", JSON.stringify(workspaceFolders));
+    localStorage.setItem("sbbh_vault_path", vaultPath);
+    updateFolderPicker();
+    applyVault(entries, links, folders);
+    return true;
+  } catch (error) {
+    alert(String(error));
+    return false;
+  } finally {
+    fileOperation = false;
+  }
+}
+
+async function chooseFolder() {
+  if (choosingFolder) return;
+  choosingFolder = folderAdd.disabled = folderButton.disabled = true;
+  try {
+    const path = await invoke("choose_vault_folder");
+    if (path && await switchFolder(path)) setWorkspaceView("files");
+  } catch (error) {
+    alert(String(error));
+  } finally {
+    choosingFolder = folderAdd.disabled = folderButton.disabled = false;
+  }
+}
+
+folderButton.onclick = folderAdd.onclick = chooseFolder;
+workspacePicker.onchange = async () => {
+  const path = workspacePicker.value;
+  workspacePicker.value = vaultPath;
+  if (path) await switchFolder(path);
 };
+sidebarFiles.onclick = () => showSidebarPanel("files");
+sidebarGit.onclick = () => showSidebarPanel("git");
 
 document.getElementById("btn-reload").onclick = () => reloadVault().catch(err => alert(String(err)));
 btnRun.onclick = runCurrentCode;
@@ -1641,7 +1715,10 @@ window.addEventListener("keydown", (e) => {
     vaultPath = await invoke("get_default_vault");
     localStorage.setItem("sbbh_vault_path", vaultPath);
   }
-  await reloadVault();
+  workspaceFolders = [...new Set([vaultPath, ...workspaceFolders])];
+  localStorage.setItem("sbbh_workspace_folders", JSON.stringify(workspaceFolders));
+  updateFolderPicker();
+  await reloadVault().catch(error => alert(String(error)));
 
   let mainSource = await fetch("./main.js").then((r) => r.text());
 
