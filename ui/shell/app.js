@@ -1716,34 +1716,19 @@ async function chooseFolder() {
 
 folderButton.onclick = folderAdd.onclick = chooseFolder;
 
-const externalDialog = document.getElementById("external-file-dialog");
-let externalPreview;
 let choosingFile = false;
 
 function releaseExternalFile(path) {
   invoke("forget_external_file", { path }).catch(console.error);
 }
 
-function showExternalFile(external) {
-  const path = `external:${encodeURIComponent(external.parent)}/${external.name}`;
-  const draft = openDocuments.get(path)?.text;
-  const text = draft ?? external.text.replace(/^\uFEFF/, "");
-  const source = document.getElementById("external-file-source");
-  externalPreview = { external, path };
-  document.getElementById("external-file-title").textContent = external.name;
-  document.getElementById("external-file-path").textContent = external.display_path;
-  source.textContent = text.length > 60_000 ? text.slice(0, 60_000) + "\n\n… Aperçu limité aux 60 000 premiers caractères." : text;
-  source.scrollTop = 0;
-  if (!externalDialog.open) externalDialog.showModal();
-}
-
-async function chooseExternalFile() {
+async function chooseExternalFile(quick = true) {
   if (choosingFile || choosingFolder || fileOperation) return;
   newMenu.close();
   choosingFile = true;
   try {
-    const external = await invoke("choose_external_file");
-    if (external) showExternalFile(external);
+    const external = await invoke("choose_external_file", { quick });
+    if (external) await editExternalFile(external);
   } catch (error) {
     alert(String(error));
   } finally {
@@ -1751,31 +1736,25 @@ async function chooseExternalFile() {
   }
 }
 
-document.getElementById("btn-open-external-file").onclick = chooseExternalFile;
-document.getElementById("btn-open-file-sidebar").onclick = chooseExternalFile;
-document.getElementById("external-file-close").onclick = () => externalDialog.close();
-externalDialog.addEventListener("close", () => {
-  if (externalPreview && !openDocuments.has(externalPreview.path)) releaseExternalFile(externalPreview.external.path);
-  externalPreview = undefined;
-});
-document.getElementById("external-file-edit").onclick = () => {
-  if (!externalPreview || fileOperation) return;
-  const { external, path } = externalPreview;
+async function editExternalFile(external) {
+  const path = `external:${encodeURIComponent(external.parent)}/${external.name}`;
   let doc = openDocuments.get(path);
   if (!doc) {
     const match = external.name.match(/\.(\w+)$/);
-    const file = { path, ext: match?.[1].toLowerCase() || "txt", external: {
-      path: external.path, display_path: external.display_path, parent: external.parent, name: external.name,
-    } };
-    const text = external.text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
-    const bom = external.text.startsWith("\uFEFF") ? "\uFEFF" : "";
-    const lineEnding = external.text.match(/\r\n|\n|\r/)?.[0] ?? "\n";
+    const { text: raw, ...fileInfo } = external;
+    const file = { path, ext: match?.[1].toLowerCase() || "txt", external: fileInfo };
+    const text = raw.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+    const bom = raw.startsWith("\uFEFF") ? "\uFEFF" : "";
+    const lineEnding = raw.match(/\r\n|\n|\r/)?.[0] ?? "\n";
     doc = { file, text, saved: text, bom, lineEnding, position: null, console: null };
     openDocuments.set(path, doc);
   }
-  externalDialog.close();
-  openFileInStudio(doc.file);
-};
+  await openFileInStudio(doc.file);
+}
+
+document.getElementById("btn-open-external-file").onclick = () => chooseExternalFile();
+document.getElementById("btn-open-file-sidebar").onclick = () => chooseExternalFile();
+document.getElementById("btn-open-file-full-editor").onclick = () => chooseExternalFile(false);
 workspacePicker.onchange = async () => {
   const path = workspacePicker.value;
   workspacePicker.value = vaultPath;
@@ -1861,7 +1840,7 @@ document.addEventListener("black-hole-language-change", () => {
 });
 
 window.addEventListener("keydown", (e) => {
-  if (e.defaultPrevented || !document.getElementById("lab-modal").hidden || colorDialog.open || newMenu.open || externalDialog.open || BlackHoleTools.isOpen
+  if (e.defaultPrevented || !document.getElementById("lab-modal").hidden || colorDialog.open || newMenu.open || BlackHoleTools.isOpen
       || document.getElementById("updates-dialog").open) return;
   if (e.key === "F2" && !drawer.hidden) {
     e.preventDefault();
@@ -1902,12 +1881,6 @@ window.addEventListener("keydown", (e) => {
   localStorage.setItem("sbbh_workspace_folders", JSON.stringify(workspaceFolders));
   updateFolderPicker();
   await reloadVault().catch(error => alert(String(error)));
-  invoke("startup_external_file").then(external => {
-    if (external) {
-      document.getElementById("updates-dialog").close();
-      showExternalFile(external);
-    }
-  }).catch(error => alert(String(error)));
 
   let mainSource = await fetch("./graph/black-hole-map.js").then((r) => r.text());
 

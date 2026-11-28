@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Édition rapide — Black Hole</title>
+  <link rel="stylesheet" href="studio/quick-edit.css" />
+  <script src="editor/web-editor.js" defer></script>
+  <script src="studio/quick-edit.js" defer></script>
+</head>
+<body>
+  <header>
+    <div class="file-info">
+      <h1 id="file-name">Édition rapide</h1>
+      <p id="file-path"></p>
+    </div>
+    <div class="actions">
+      <button id="save-file" type="button" title="Enregistrer (Ctrl+S)" hidden>Enregistrer</button>
+      <button id="close-file" type="button" title="Fermer (Ctrl+W)">Fermer</button>
+    </div>
+  </header>
+  <main>
+    <div id="editor"></div>
+    <img id="preview-image" alt="" hidden />
+  </main>
+  <footer><p id="status" role="status">Ouverture…</p><span id="language"></span></footer>
+  <dialog id="confirm-close" aria-labelledby="confirm-title">
+    <form method="dialog">
+      <p id="confirm-title">Fermer sans enregistrer les modifications ?</p>
+      <div class="actions">
+        <button type="submit" value="cancel" autofocus>Continuer à modifier</button>
+        <button type="submit" value="discard">Fermer sans enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+</body>
+</html>

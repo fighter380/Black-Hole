@@ -95,10 +95,6 @@ body.has-sidebar { --lab-left: calc(var(--lab-rail) + var(--lab-side)); }
 .lab-new-dialog footer { padding: 11px 20px; border-top: 1px solid var(--lab-border); }
 .lab-new-dialog footer button { width: 100%; display: flex; align-items: center; justify-content: space-between; white-space: normal; }
 .lab-open-actions { display: grid; gap: 7px; }
-.lab-external-file { width: min(740px, 92vw); }
-.lab-external-file h2, #external-file-path { overflow-wrap: anywhere; }
-#external-file-path { margin: 0 20px 10px; color: #c6c4d0; font-size: 12px; }
-#external-file-source { margin: 0 20px 12px; padding: 12px; max-height: 52vh; overflow: auto; border-radius: 6px; background: #101116; }
 .lab-new-dialog kbd { color: #c6c4d0; font-size: 11px; }
 
 .lab-tools-dialog { width: min(570px, 92vw); max-height: 86vh; overflow: auto; }

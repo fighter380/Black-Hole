@@ -225,17 +225,12 @@
       <button id="btn-new" class="lab-btn" type="button"><span aria-hidden="true">▤</span> Fichier</button>
     </div>
     <footer class="lab-open-actions">
-      <button id="btn-open-external-file" class="lab-btn" type="button">Ouvrir un fichier… <kbd>Ctrl+O</kbd></button>
+      <button id="btn-open-external-file" class="lab-btn" type="button">Ouvrir en édition rapide… <kbd>Ctrl+O</kbd></button>
+      <button id="btn-open-file-full-editor" class="lab-btn" type="button">Ouvrir dans l’éditeur principal…</button>
       <button id="btn-vault" class="lab-btn" type="button">Ouvrir un dossier externe… <kbd>Ctrl+Maj+O</kbd></button>
     </footer>
   </dialog>
 
-  <dialog id="external-file-dialog" class="lab-new-dialog lab-external-file" aria-labelledby="external-file-title">
-    <header><h2 id="external-file-title"></h2><button id="external-file-close" class="lab-btn" type="button">Fermer</button></header>
-    <p id="external-file-path"></p>
-    <pre id="external-file-source" tabindex="0" aria-label="Aperçu du code"></pre>
-    <footer><button id="external-file-edit" class="lab-btn lab-btn-run" type="button">Modifier dans Black Hole</button></footer>
-  </dialog>
 
   <dialog id="tools-dialog" class="lab-new-dialog lab-tools-dialog" aria-labelledby="tools-title">
     <header><h2 id="tools-title">Outils et installations</h2><button id="close-tools" class="lab-btn" type="button">Fermer</button></header>
@@ -323,14 +318,16 @@
           <button id="updates-check" class="lab-btn" type="button">Vérifier</button>
           <button id="updates-install" class="lab-btn lab-btn-run" type="button" hidden>Installer la mise à jour</button>
         </div>
-        <pre id="updates-remote-notes" hidden></pre>
+        <section id="updates-remote-notes" class="lab-release" hidden></section>
       </section>
       <section id="updates-installed" class="lab-release" hidden>
         <h3 id="updates-installed-title"></h3>
-        <pre id="updates-installed-notes"></pre>
+        <div id="updates-installed-notes"></div>
       </section>
-      <h3>Fonctionnalités des premières versions</h3>
-      <div id="updates-history"></div>
+      <section id="updates-history-section" aria-labelledby="updates-history-title" hidden>
+        <h3 id="updates-history-title">Versions précédentes</h3>
+        <div id="updates-history"></div>
+      </section>
     </div>
   </dialog>
 

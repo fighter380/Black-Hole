@@ -10,6 +10,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "create": false,
         "title": "Second Brain Black Hole — Code Lab",
         "width": 1380,
         "height": 860,

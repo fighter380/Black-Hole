@@ -19,44 +19,77 @@
   let busy = false;
   let installing = false;
 
-  const legacyFeatures = [
-    ["Mises à jour", ["Vérification des nouvelles versions et installation des mises à jour signées depuis GitHub Releases."]],
-    ["Simulation Arduino", ["Vérification du câblage des LED et simulation du croquis Uno compilé."]],
-    ["Nouvelle icône", ["Le trou noir illustré devient l’icône de l’application et de l’installateur Windows."]],
-    ["Version et nouveautés", [
+  const versionNotes = new Map([
+    ["0.2.16", ["Ouverture des fichiers texte du PC avec aperçu du code, édition et sauvegarde à leur emplacement d’origine."]],
+    ["0.2.15", [
+      "Défilement du moniteur série Arduino et bouton Dernières lignes.",
+      "Détection de JSON, TypeScript et Rust, avec coloration et suggestions locales.",
+    ]],
+    ["0.2.4", ["Vérification des nouvelles versions et installation des mises à jour signées depuis GitHub Releases."]],
+    ["0.2.3", ["Vérification du câblage des LED et simulation du croquis Uno compilé."]],
+    ["0.2.2", ["Le trou noir illustré devient l’icône de l’application et de l’installateur Windows."]],
+    ["0.2.1", [
       "La version s’affiche en haut à gauche et donne accès aux mises à jour.",
       "Les nouveautés de la version installée s’affichent au premier lancement.",
       "L’installateur Windows adopte les couleurs de Second Brain et propose le français.",
     ]],
-    ["Atelier Arduino", [
+    ["0.2.0", [
       "Sélection du port COM, téléversement sur Arduino Uno et moniteur série intégré.",
       "Éditeur de schémas électriques avec composants, fils et sauvegarde par croquis.",
     ]],
-    ["Éditeur Arduino", ["Coloration C++, autocomplétion hors ligne et compilation pour Arduino Uno."]],
-    ["Console Python", ["Sortie et erreurs Python en direct dans l’app."]],
-    ["Explorateur de fichiers", ["Vues Graphe et Fichiers, dossiers dépliables et onglets d’édition."]],
-    ["Palette et liens", ["Boutons sombres, palette CSS hexadécimale et liens entre étoiles."]],
-    ["Éditeur Web", ["Renommage par double-clic, coloration et autocomplétion HTML, CSS et JavaScript hors ligne."]],
-    ["Projets Web", ["Création de sites et aperçu en direct. Correction du compteur de fichiers Python."]],
-  ];
+    ["0.1.9", ["Coloration C++, autocomplétion hors ligne et compilation pour Arduino Uno."]],
+    ["0.1.8", ["Sortie et erreurs Python en direct dans l’app."]],
+    ["0.1.7", ["Vues Graphe et Fichiers, dossiers dépliables et onglets d’édition."]],
+    ["0.1.6", ["Boutons sombres, palette CSS hexadécimale et liens entre étoiles."]],
+    ["0.1.5", ["Renommage par double-clic, coloration et autocomplétion HTML, CSS et JavaScript hors ligne."]],
+    ["0.1.4", ["Création de sites et aperçu en direct. Correction du compteur de fichiers Python."]],
+  ]);
+  const publishedNotes = new Map();
 
-  for (const [title, changes] of legacyFeatures) {
-    const release = document.createElement("section");
-    release.className = "lab-release";
-    const heading = document.createElement("h4");
-    heading.textContent = title;
+  function addReleaseNotes(version, text = "") {
+    let current = version;
+    const releases = new Map();
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (/^(Historique Git avant cette version|Commits antérieurs)/.test(line)) break;
+      const heading = line.match(/^v(\d+\.\d+\.\d+)$/);
+      if (heading) {
+        current = heading[1];
+      } else if (line) {
+        if (!releases.has(current)) releases.set(current, []);
+        releases.get(current).push(line.replace(/^-\s+/, "").replace(/\s+\([a-f0-9]{7,40}\)$/i, ""));
+      }
+    }
+    for (const [number, changes] of releases) publishedNotes.set(number, changes);
+  }
+
+  function changesFor(version) {
+    return versionNotes.get(version) ?? publishedNotes.get(version);
+  }
+
+  function renderChanges(version) {
     const list = document.createElement("ul");
-    for (const change of changes) {
+    for (const change of changesFor(version) ?? ["Aucune note pour cette version."]) {
       const item = document.createElement("li");
       item.textContent = change;
       list.append(item);
     }
-    release.append(heading, list);
-    el("updates-history").append(release);
+    return list;
   }
 
-  function presentNotes(text) {
-    return text?.replace(/^Historique Git avant cette version$/m, "Commits antérieurs · versions de publication non vérifiées") || "";
+  function renderHistory() {
+    const history = [...new Set([...versionNotes.keys(), ...publishedNotes.keys()])]
+      .filter(version => version.localeCompare(localVersion, undefined, { numeric: true }) < 0)
+      .sort((a, b) => b.localeCompare(a, undefined, { numeric: true }));
+    el("updates-history").replaceChildren(...history.map(version => {
+      const release = document.createElement("section");
+      release.className = "lab-release";
+      const heading = document.createElement("h4");
+      heading.textContent = `v${version}`;
+      release.append(heading, renderChanges(version));
+      return release;
+    }));
+    el("updates-history-section").hidden = !history.length;
   }
 
   function showState(state, message) {
@@ -80,8 +113,10 @@
       const result = await invoke("check_app_update");
       if (result.state === "available") {
         candidate = result.version;
-        notes.textContent = presentNotes(result.notes);
-        notes.hidden = !result.notes;
+        addReleaseNotes(candidate, result.notes ?? "");
+        notes.replaceChildren(renderChanges(candidate));
+        notes.hidden = !changesFor(candidate);
+        renderHistory();
         install.hidden = false;
         install.textContent = candidate === downloadedVersion ? "Installer et relancer" : "Installer la mise à jour";
         showState("available", `Version ${candidate} disponible.`);
@@ -152,9 +187,11 @@
   invoke("app_release_info").then(({ version, notes: installedNotes }) => {
     localVersion = version;
     el("app-version-value").textContent = `v${version}`;
-    el("updates-installed-title").textContent = `Version ${version} · Nouveautés et historique`;
-    el("updates-installed-notes").textContent = presentNotes(installedNotes) || "Aucun message de commit pour cette version.";
+    addReleaseNotes(version, installedNotes ?? "");
+    el("updates-installed-title").textContent = `v${version} · Nouveautés`;
+    el("updates-installed-notes").replaceChildren(renderChanges(version));
     el("updates-installed").hidden = false;
+    renderHistory();
     showState("unknown", `Version ${version} installée.`);
     if (localStorage.getItem(seenKey) !== version && !dialog.open
         && !document.querySelector('dialog[open], #lab-modal:not([hidden])')) dialog.showModal();

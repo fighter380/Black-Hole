@@ -2,6 +2,7 @@
 
 use std::ffi::OsStr;
 use std::process::Command;
+use tauri::Manager;
 
 mod studio;
 mod updates;
@@ -36,10 +37,30 @@ fn main() {
         .manage(serial::SerialMonitor::default())
         .manage(updates::DownloadedUpdate::default())
         .manage(external_files::ExternalFiles::default())
+        .setup(|app| {
+            let startup_file = std::env::args_os()
+                .nth(1)
+                .filter(|arg| !arg.to_string_lossy().starts_with('-'));
+            if let Some(path) = startup_file {
+                external_files::open_quick_file(app.handle(), path.into())?;
+            } else {
+                tauri::WebviewWindowBuilder::from_config(app, &app.config().app.windows[0])?
+                    .build()?;
+            }
+            Ok(())
+        })
+        .on_window_event(|window, event| {
+            if matches!(event, tauri::WindowEvent::Destroyed) {
+                window
+                    .state::<external_files::ExternalFiles>()
+                    .remove_window(window.label());
+            }
+        })
         .invoke_handler(tauri::generate_handler![
             external_files::choose_external_file,
-            external_files::startup_external_file,
+            external_files::quick_file,
             external_files::save_external_file,
+            external_files::read_external_image,
             external_files::forget_external_file,
             vault::choose_vault_folder,
             source_control::git_status,

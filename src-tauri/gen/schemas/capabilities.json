@@ -1,1 +1,1 @@
-{"default":{"identifier":"default","description":"Permissions par defaut","local":true,"windows":["main"],"permissions":["core:default"]}}
+{"default":{"identifier":"default","description":"Permissions par defaut","local":true,"windows":["main"],"permissions":["core:default"]},"quick-edit":{"identifier":"quick-edit","description":"Écoute de la fermeture de la fenêtre d’édition rapide","local":true,"windows":["quick-*"],"permissions":["core:default","core:window:allow-destroy"]}}

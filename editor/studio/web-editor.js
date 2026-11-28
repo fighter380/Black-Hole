@@ -8,8 +8,9 @@ import { cpp } from "@codemirror/lang-cpp";
 import { html } from "@codemirror/lang-html";
 import { javascript, localCompletionSource } from "@codemirror/lang-javascript";
 import { json } from "@codemirror/lang-json";
+import { python } from "@codemirror/lang-python";
 import { rust } from "@codemirror/lang-rust";
-import { bracketMatching, foldGutter, foldKeymap, indentOnInput } from "@codemirror/language";
+import { bracketMatching, foldGutter, foldKeymap, indentOnInput, indentUnit } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from "@codemirror/view";
@@ -74,7 +75,8 @@ const completionTypes = {
   "module": "namespace", "property": "property", "var": "variable",
 };
 
-function createCodeEditor({ parent, language, content, position, onChange, getPath, readProjectJavaScript, openColorPicker, getArduinoHeaders }) {
+function createCodeEditor({ parent, language, content, position, onChange, getPath,
+  readProjectJavaScript, openColorPicker, getArduinoHeaders = () => [] }) {
   let project;
   let disposed = false;
 
@@ -112,8 +114,9 @@ function createCodeEditor({ parent, language, content, position, onChange, getPa
   }
 
   const isCpp = language === "cpp";
-  const support = { js: javascript, ts: () => javascript({ typescript: true }), css, html, htm: html, cpp, json, rs: rust }[language]();
-  const source = { js: completeJavaScript, cpp: isCpp && arduinoCompletion(getArduinoHeaders),
+  const support = { js: javascript, ts: () => javascript({ typescript: true }), css, html, htm: html,
+    cpp, json, py: python, rs: rust }[language]?.() ?? [];
+  const source = { js: readProjectJavaScript && completeJavaScript, cpp: isCpp && arduinoCompletion(getArduinoHeaders),
     json: language === "json" && jsonCompletion(getPath), rs: rustCompletion }[language];
   const completion = autocompletion(source ? { override: [source] } : {});
   const view = new EditorView({
@@ -127,8 +130,9 @@ function createCodeEditor({ parent, language, content, position, onChange, getPa
       extensions: [
         lineNumbers(), foldGutter(), history(), highlightActiveLine(), highlightActiveLineGutter(),
         indentOnInput(), bracketMatching(), closeBrackets(), support, completion, oneDark, editorTheme,
-        isCpp ? [] : colorSwatches(openColorPicker),
-        EditorState.tabSize.of(2),
+        !isCpp && openColorPicker ? colorSwatches(openColorPicker) : [],
+        EditorState.tabSize.of(language === "py" ? 4 : 2),
+        indentUnit.of(language === "py" ? "    " : "  "),
         EditorView.contentAttributes.of({ "aria-label": `Éditeur ${language.toUpperCase()} (Ctrl+Espace pour les suggestions)` }),
         EditorView.updateListener.of(update => {
           if (update.docChanged) onChange(update.state.doc.toString());

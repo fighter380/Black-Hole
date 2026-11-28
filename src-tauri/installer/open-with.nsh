@@ -17,6 +17,14 @@
   !insertmacro BLACK_HOLE_SUPPORT ".ts"
   !insertmacro BLACK_HOLE_SUPPORT ".ino"
   !insertmacro BLACK_HOLE_SUPPORT ".rs"
+  !insertmacro BLACK_HOLE_SUPPORT ".png"
+  !insertmacro BLACK_HOLE_SUPPORT ".jpg"
+  !insertmacro BLACK_HOLE_SUPPORT ".jpeg"
+  !insertmacro BLACK_HOLE_SUPPORT ".gif"
+  !insertmacro BLACK_HOLE_SUPPORT ".webp"
+  !insertmacro BLACK_HOLE_SUPPORT ".bmp"
+  !insertmacro BLACK_HOLE_SUPPORT ".ico"
+  !insertmacro BLACK_HOLE_SUPPORT ".avif"
   !undef BLACK_HOLE_OPEN_WITH
 !macroend
 
