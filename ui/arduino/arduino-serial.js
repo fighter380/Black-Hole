@@ -28,6 +28,18 @@ window.ArduinoSerial = {
     let streamId = 0;
     let serialText = "";
     let repaintScheduled = false;
+    let following = true;
+    let serialVisible = false;
+
+    function scrollToBottom() {
+      following = true;
+      output.scrollTop = output.scrollHeight;
+    }
+
+    output.addEventListener("scroll", () => {
+      if (output.clientHeight) following = output.scrollHeight - output.scrollTop - output.clientHeight <= 2;
+    });
+    byId("arduino-serial-bottom").onclick = scrollToBottom;
 
     const rememberedBaud = localStorage.getItem("sbbh_serial_baud");
     if ([...baud.options].some(option => option.value === rememberedBaud)) baud.value = rememberedBaud;
@@ -43,6 +55,10 @@ window.ArduinoSerial = {
       buildTab.setAttribute("aria-pressed", String(!serialShown));
       serialTab.setAttribute("aria-pressed", String(serialShown));
       serialPanel.hidden = !serialShown;
+      if (serialShown && !serialVisible && following) {
+        requestAnimationFrame(() => { if (following) scrollToBottom(); });
+      }
+      serialVisible = serialShown;
       port.disabled = phase !== "off" || loading || busy;
       refresh.disabled = phase !== "off" || loading || busy;
       baud.disabled = phase !== "off" || busy;
@@ -89,9 +105,12 @@ window.ArduinoSerial = {
       repaintScheduled = true;
       requestAnimationFrame(() => {
         repaintScheduled = false;
-        const follow = output.scrollHeight - output.scrollTop - output.clientHeight < 20;
+        const scrollTop = output.scrollTop;
         output.textContent = serialText;
-        if (follow) output.scrollTop = output.scrollHeight;
+        if (output.clientHeight) {
+          if (following) scrollToBottom();
+          else output.scrollTop = scrollTop;
+        }
       });
     }
 
@@ -163,6 +182,7 @@ window.ArduinoSerial = {
     byId("arduino-serial-clear").onclick = () => {
       serialText = "";
       output.textContent = "";
+      following = true;
     };
     byId("arduino-serial-form").onsubmit = async event => {
       event.preventDefault();

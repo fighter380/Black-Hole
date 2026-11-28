@@ -1,6 +1,6 @@
 # Publication des mises à jour Windows
 
-Le canal `rolling` de [Blak-Hole](https://github.com/fighter380/Blak-Hole/releases) reçoit les installateurs et leur manifeste. Chaque build embarque les mêmes messages de commit que le manifeste. L’application vérifie la signature et le numéro de version signé avant de lancer l’installation.
+Le canal `rolling` de [Blak-Hole](https://github.com/fighter380/Blak-Hole/releases) reçoit les installateurs et leur manifeste. Chaque build embarque les mêmes notes que le manifeste. Elles regroupent les commits de la nouvelle version et les notes des publications précédentes. L’application vérifie la signature et le numéro de version signé avant de lancer l’installation.
 
 ## Première activation
 
@@ -16,7 +16,7 @@ Une fois le nouveau manifeste publié, le workflow retire les anciens installate
 
 ## Build local signé
 
-Depuis la racine du dépôt, lance ces commandes. Le script utilise la clé locale par défaut. Tu peux lui passer `-KeyPath` ou définir `TAURI_SIGNING_PRIVATE_KEY` pour utiliser une autre copie de la même clé. Avec `-BaseCommit`, indique le SHA à partir duquel lire les messages. Sans ce paramètre, le dernier commit de `HEAD` fournit les notes.
+Depuis la racine du dépôt, lance ces commandes. Le script utilise la clé locale par défaut. Tu peux lui passer `-KeyPath` ou définir `TAURI_SIGNING_PRIVATE_KEY` pour utiliser une autre copie de la même clé. Avec `-BaseCommit`, indique le SHA du dernier build publié. Tu peux fournir le manifeste correspondant via `-PreviousManifest` pour conserver les sections par version. Sans commit de base, les notes reprennent l’historique Git de `HEAD`.
 
 ```powershell
 npm ci

@@ -36,9 +36,10 @@ async fn latest(app: &tauri::AppHandle) -> tauri_plugin_updater::Result<Option<U
 
 #[tauri::command]
 pub fn app_release_info(app: tauri::AppHandle) -> InstalledRelease {
+    let notes = include_str!(concat!(env!("OUT_DIR"), "/release-notes.txt")).trim();
     InstalledRelease {
         version: app.package_info().version.to_string(),
-        notes: option_env!("SBBH_RELEASE_NOTES").filter(|notes| !notes.trim().is_empty()),
+        notes: (!notes.is_empty()).then_some(notes),
     }
 }
 

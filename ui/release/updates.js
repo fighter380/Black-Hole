@@ -148,7 +148,7 @@
   invoke("app_release_info").then(({ version, notes: installedNotes }) => {
     localVersion = version;
     el("app-version-value").textContent = `v${version}`;
-    el("updates-installed-title").textContent = `Nouveautés de la version ${version}`;
+    el("updates-installed-title").textContent = `Version ${version} · Nouveautés et historique`;
     el("updates-installed-notes").textContent = installedNotes || "Aucun message de commit pour cette version.";
     el("updates-installed").hidden = false;
     showState("unknown", `Version ${version} installée.`);

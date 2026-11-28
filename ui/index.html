@@ -194,9 +194,10 @@
             </select>
             <button id="arduino-serial-connect" type="button" class="lab-btn">Connecter</button>
             <button id="arduino-serial-clear" type="button" class="lab-btn">Effacer</button>
+            <button id="arduino-serial-bottom" type="button" class="lab-btn" aria-controls="arduino-serial-output">Dernières lignes</button>
             <span id="arduino-serial-status" role="status"></span>
           </div>
-          <pre id="arduino-serial-output" class="lab-console-output" aria-label="Données série reçues"></pre>
+          <pre id="arduino-serial-output" class="lab-console-output" tabindex="0" aria-label="Données série reçues"></pre>
           <form id="arduino-serial-form" class="lab-serial-send">
             <input id="arduino-serial-input" class="lab-control" aria-label="Message série" placeholder="Envoyer au port série…" maxlength="1000" />
             <select id="arduino-serial-ending" class="lab-control" aria-label="Fin de ligne">
@@ -242,7 +243,7 @@
       <button class="lab-btn" id="tools-refresh" type="button">Revérifier les outils</button>
     </section>
     <section data-tool-section="languages" hidden>
-      <p>Extensions de coloration disponibles hors ligne.</p>
+      <p>Le langage est reconnu par l’extension du fichier. La coloration fonctionne hors ligne.</p>
       <div class="lab-tool-row"><strong>TypeScript · .ts</strong><button class="lab-btn" type="button" data-language="ts" aria-pressed="false">Activer</button></div>
       <div class="lab-tool-row"><strong>JSON · .json</strong><button class="lab-btn" type="button" data-language="json" aria-pressed="false">Activer</button></div>
       <div class="lab-tool-row"><strong>Rust · .rs</strong><button class="lab-btn" type="button" data-language="rs" aria-pressed="false">Activer</button></div>

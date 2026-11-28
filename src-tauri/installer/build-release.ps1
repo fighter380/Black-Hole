@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param(
     [string]$BaseCommit,
+    [string]$PreviousManifest,
     [version]$PublishedVersion,
     [switch]$AutoVersion,
     [switch]$UseNpmCli,
@@ -13,6 +14,36 @@ $configPath = Join-Path $project 'src-tauri/tauri.conf.json'
 $config = Get-Content -Raw -LiteralPath $configPath | ConvertFrom-Json
 $utf8 = [Text.UTF8Encoding]::new($false)
 $version = [version]$config.version
+
+function Get-ReleaseNotes([string]$Commit, [string]$Base, [string]$PreviousPath, [version]$Version) {
+    $previous = if ($PreviousPath) { Get-Content -Raw -Encoding UTF8 -LiteralPath $PreviousPath | ConvertFrom-Json }
+    $range = $Commit
+    if ($Base -and $Base -notmatch '^0{40}$') {
+        if ($Base -notmatch '^[0-9a-f]{40}$') { throw 'SHA du commit precedent invalide.' }
+        git merge-base --is-ancestor $Base $Commit
+        if ($LASTEXITCODE -ne 0) { throw "Le commit publie ne fait pas partie de l'historique du build." }
+        $range = "$Base..$Commit"
+    }
+    $changes = git -c i18n.logOutputEncoding=UTF-8 log '--format=- %s (%h)' $range
+    if ($LASTEXITCODE -ne 0) { throw "Impossible de lire l'historique Git." }
+
+    $notes = @("v$Version")
+    if ($changes) { $notes += $changes }
+    else { $notes += 'Aucun nouveau commit.' }
+
+    if ($range -ne $Commit) {
+        if ($previous.notes_format -eq 1 -and $previous.commit -eq $Base -and $previous.notes) {
+            $notes += '', $previous.notes
+        } else {
+            $archive = git -c i18n.logOutputEncoding=UTF-8 log '--format=- %s (%h)' $Base
+            if ($LASTEXITCODE -ne 0) { throw "Impossible de lire les anciens commits." }
+            $notes += '', 'Historique Git avant cette version'
+            $notes += $archive
+        }
+    }
+    $notes -join "`n"
+}
+
 if ($AutoVersion) {
     if ($PublishedVersion -gt $version) { $version = $PublishedVersion }
     if ($version.Build -ge 65535) { throw 'Augmente la version mineure dans tauri.conf.json.' }
@@ -25,7 +56,7 @@ if ($AutoVersion) {
 }
 
 $previousKey = $env:TAURI_SIGNING_PRIVATE_KEY
-$previousNotes = $env:SBBH_RELEASE_NOTES
+$previousNotesFile = $env:SBBH_RELEASE_NOTES_FILE
 $previousEncoding = [Console]::OutputEncoding
 Push-Location -LiteralPath $project
 try {
@@ -42,21 +73,11 @@ try {
     }
     $commit = git rev-parse HEAD
     if ($LASTEXITCODE -ne 0) { throw 'Le commit du build est introuvable.' }
-    if ($BaseCommit -and $BaseCommit -notmatch '^0{40}$') {
-        if ($BaseCommit -notmatch '^[0-9a-f]{40}$') { throw 'SHA du commit precedent invalide.' }
-        git merge-base --is-ancestor $BaseCommit $commit
-        if ($LASTEXITCODE -ne 0) { throw "Le commit publie ne fait pas partie de l'historique du build." }
-        $changes = git -c i18n.logOutputEncoding=UTF-8 log '--format=- %s (%h)' "$BaseCommit..$commit"
-    } else {
-        $changes = git -c i18n.logOutputEncoding=UTF-8 log -1 '--format=- %s (%h)' $commit
-    }
-    if ($LASTEXITCODE -ne 0) { throw "Impossible de lire l'historique Git." }
-    if (-not $changes) {
-        $changes = git -c i18n.logOutputEncoding=UTF-8 log -1 '--format=- %s (%h)' $commit
-        if ($LASTEXITCODE -ne 0) { throw 'Impossible de lire le dernier commit.' }
-    }
-    $notes = $changes -join "`n"
-    $env:SBBH_RELEASE_NOTES = $notes
+    $notes = Get-ReleaseNotes $commit $BaseCommit $PreviousManifest $version
+    $output = Join-Path $project "src-tauri/target/github-release/v$version"
+    New-Item -ItemType Directory -Path $output -Force | Out-Null
+    $env:SBBH_RELEASE_NOTES_FILE = Join-Path $output 'release-notes.md'
+    [IO.File]::WriteAllText($env:SBBH_RELEASE_NOTES_FILE, $notes, $utf8)
     $buildArgs = @('build', '--bundles', 'nsis', '--config', 'src-tauri/installer/updates.json')
     if ($UseNpmCli) {
         npm exec --yes --package=@tauri-apps/cli@2.12.6 -- tauri @buildArgs
@@ -66,7 +87,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'La compilation signee a echoue.' }
 } finally {
     $env:TAURI_SIGNING_PRIVATE_KEY = $previousKey
-    $env:SBBH_RELEASE_NOTES = $previousNotes
+    $env:SBBH_RELEASE_NOTES_FILE = $previousNotesFile
     [Console]::OutputEncoding = $previousEncoding
     Pop-Location
 }
@@ -85,10 +106,10 @@ if ([BitConverter]::ToUInt64($signatureBytes, 2) -ne [BitConverter]::ToUInt64($k
 
 $tag = 'rolling'
 $installer = "Black-Hole_${version}_x64-setup.exe"
-$output = Join-Path $project "src-tauri/target/github-release/v$version"
 $manifest = [ordered]@{
     version = $version.ToString()
     notes = $notes
+    notes_format = 1
     commit = $commit
     platforms = @{
         'windows-x86_64' = @{
@@ -98,7 +119,6 @@ $manifest = [ordered]@{
     }
 } | ConvertTo-Json -Depth 4
 
-New-Item -ItemType Directory -Path $output -Force | Out-Null
 Copy-Item -LiteralPath $source -Destination (Join-Path $output $installer)
 Copy-Item -LiteralPath "$source.sig" -Destination (Join-Path $output "$installer.sig")
 [IO.File]::WriteAllText((Join-Path $output 'latest.json'), "$manifest`n", $utf8)

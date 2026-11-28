@@ -669,6 +669,7 @@ html, body {
 
 .lab-console-output {
   flex: 1;
+  min-height: 0;
   margin: 0;
   padding: 10px 14px;
   overflow: auto;
@@ -721,6 +722,9 @@ html, body {
 .lab-control:focus-visible { outline: 2px solid #be8af5; outline-offset: 1px; }
 
 .lab-serial-panel { display: flex; flex: 1; min-height: 0; flex-direction: column; }
+#arduino-serial-output { overflow-anchor: none; overscroll-behavior: contain; }
+#arduino-serial-output:focus-visible { outline: 1px solid #be8af5; outline-offset: -1px; }
+.lab-serial-status-row, .lab-serial-send { flex-shrink: 0; }
 #arduino-serial-status { flex: 1 1 140px; font-size: 11px; color: #c5b4d9; }
 .lab-serial-send {
   display: flex;

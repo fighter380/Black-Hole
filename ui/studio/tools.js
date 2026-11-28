@@ -17,10 +17,10 @@ window.BlackHoleTools = (({ invoke }) => {
     ["fastapi", "fastapi"], ["pytest", "pytest"], ["openpyxl", "openpyxl"],
   ]);
   const supported = new Set(languageButtons.map(button => button.dataset.language));
-  const languages = new Set();
+  const disabledLanguages = new Set();
   try {
-    const saved = JSON.parse(localStorage.getItem("sbbh_languages") || "[]");
-    if (Array.isArray(saved)) for (const language of saved) if (supported.has(language)) languages.add(language);
+    const saved = JSON.parse(localStorage.getItem("sbbh_disabled_languages") || "[]");
+    if (Array.isArray(saved)) for (const language of saved) if (supported.has(language)) disabledLanguages.add(language);
   } catch {}
   let versions;
   let busy = false;
@@ -45,7 +45,7 @@ window.BlackHoleTools = (({ invoke }) => {
       button.textContent = versions?.[tool] ? "Détecté" : "Installer";
     }
     for (const button of languageButtons) {
-      const active = languages.has(button.dataset.language);
+      const active = !disabledLanguages.has(button.dataset.language);
       button.setAttribute("aria-pressed", String(active));
       button.textContent = active ? "Désactiver" : "Activer";
     }
@@ -121,8 +121,8 @@ window.BlackHoleTools = (({ invoke }) => {
   };
   for (const button of languageButtons) button.onclick = () => {
     const language = button.dataset.language;
-    if (!languages.delete(language)) languages.add(language);
-    localStorage.setItem("sbbh_languages", JSON.stringify([...languages]));
+    if (!disabledLanguages.delete(language)) disabledLanguages.add(language);
+    localStorage.setItem("sbbh_disabled_languages", JSON.stringify([...disabledLanguages]));
     document.dispatchEvent(new Event("black-hole-language-change"));
     paint();
   };
@@ -156,7 +156,7 @@ window.BlackHoleTools = (({ invoke }) => {
   return {
     get busy() { return busy; },
     get isOpen() { return dialog.open; },
-    language(extension) { return languages.has(extension) ? extension : null; },
+    language(extension) { return supported.has(extension) && !disabledLanguages.has(extension) ? extension : null; },
     reportPythonError(stderr) {
       const module = stderr.match(/^ModuleNotFoundError: No module named ['"]([A-Za-z_]\w*)['"]/m)?.[1];
       if (!module) return;

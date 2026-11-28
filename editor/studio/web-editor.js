@@ -1,6 +1,6 @@
 import {
   acceptCompletion, autocompletion, closeBrackets, closeBracketsKeymap,
-  completionKeymap, insertCompletionText, startCompletion,
+  completeFromList, completionKeymap, ifNotIn, insertCompletionText, startCompletion,
 } from "@codemirror/autocomplete";
 import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { css } from "@codemirror/lang-css";
@@ -15,6 +15,11 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import { EditorView, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from "@codemirror/view";
 import { colorSwatches, editWebColor } from "../web/color-swatches.js";
 import { arduinoCompletion } from "../arduino/arduino-completion.js";
+import { jsonCompletion } from "./json-completion.js";
+
+const rustCompletion = ifNotIn(["LineComment", "BlockComment", "String", "RawString", "Char"],
+  completeFromList("as async await break const continue crate dyn else enum extern false fn for if impl in let loop match mod move mut pub ref return self Self static struct super trait true type unsafe use where while"
+    .split(" ").map(label => ({ label, type: "keyword" }))));
 
 const workerURL = new URL("javascript-worker.js", document.currentScript.src);
 let worker;
@@ -108,7 +113,8 @@ function createCodeEditor({ parent, language, content, position, onChange, getPa
 
   const isCpp = language === "cpp";
   const support = { js: javascript, ts: () => javascript({ typescript: true }), css, html, htm: html, cpp, json, rs: rust }[language]();
-  const source = { js: completeJavaScript, cpp: arduinoCompletion(getArduinoHeaders) }[language];
+  const source = { js: completeJavaScript, cpp: isCpp && arduinoCompletion(getArduinoHeaders),
+    json: language === "json" && jsonCompletion(getPath), rs: rustCompletion }[language];
   const completion = autocompletion(source ? { override: [source] } : {});
   const view = new EditorView({
     parent,
