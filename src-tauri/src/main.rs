@@ -8,7 +8,7 @@ mod updates;
 mod workspace;
 
 use studio::{arduino, python, serial, tools};
-use workspace::{source_control, vault};
+use workspace::{external_files, source_control, vault};
 
 fn command_without_console(program: impl AsRef<OsStr>) -> Command {
     let mut command = Command::new(program);
@@ -35,7 +35,12 @@ fn main() {
         .manage(python::RunningProcess::default())
         .manage(serial::SerialMonitor::default())
         .manage(updates::DownloadedUpdate::default())
+        .manage(external_files::ExternalFiles::default())
         .invoke_handler(tauri::generate_handler![
+            external_files::choose_external_file,
+            external_files::startup_external_file,
+            external_files::save_external_file,
+            external_files::forget_external_file,
             vault::choose_vault_folder,
             source_control::git_status,
             source_control::git_apply,

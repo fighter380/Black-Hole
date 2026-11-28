@@ -19,32 +19,32 @@
   let busy = false;
   let installing = false;
 
-  const releases = [
-    ["0.2.4", "Mises à jour", ["Vérification des nouvelles versions et installation des mises à jour signées depuis GitHub Releases."]],
-    ["0.2.3", "Simulation Arduino", ["Vérification du câblage des LED et simulation du croquis Uno compilé."]],
-    ["0.2.2", "Nouvelle icône", ["Le trou noir illustré devient l’icône de l’application et de l’installateur Windows."]],
-    ["0.2.1", "Version et nouveautés", [
+  const legacyFeatures = [
+    ["Mises à jour", ["Vérification des nouvelles versions et installation des mises à jour signées depuis GitHub Releases."]],
+    ["Simulation Arduino", ["Vérification du câblage des LED et simulation du croquis Uno compilé."]],
+    ["Nouvelle icône", ["Le trou noir illustré devient l’icône de l’application et de l’installateur Windows."]],
+    ["Version et nouveautés", [
       "La version s’affiche en haut à gauche et donne accès aux mises à jour.",
       "Les nouveautés de la version installée s’affichent au premier lancement.",
       "L’installateur Windows adopte les couleurs de Second Brain et propose le français.",
     ]],
-    ["0.2.0", "Atelier Arduino", [
+    ["Atelier Arduino", [
       "Sélection du port COM, téléversement sur Arduino Uno et moniteur série intégré.",
       "Éditeur de schémas électriques avec composants, fils et sauvegarde par croquis.",
     ]],
-    ["0.1.9", "Éditeur Arduino", ["Coloration C++, autocomplétion hors ligne et compilation pour Arduino Uno."]],
-    ["0.1.8", "Console Python", ["Sortie et erreurs Python en direct dans l’app."]],
-    ["0.1.7", "Explorateur de fichiers", ["Vues Graphe et Fichiers, dossiers dépliables et onglets d’édition."]],
-    ["0.1.6", "Palette et liens", ["Boutons sombres, palette CSS hexadécimale et liens entre étoiles."]],
-    ["0.1.5", "Éditeur Web", ["Renommage par double-clic, coloration et autocomplétion HTML, CSS et JavaScript hors ligne."]],
-    ["0.1.4", "Projets Web", ["Création de sites et aperçu en direct. Correction du compteur de fichiers Python."]],
+    ["Éditeur Arduino", ["Coloration C++, autocomplétion hors ligne et compilation pour Arduino Uno."]],
+    ["Console Python", ["Sortie et erreurs Python en direct dans l’app."]],
+    ["Explorateur de fichiers", ["Vues Graphe et Fichiers, dossiers dépliables et onglets d’édition."]],
+    ["Palette et liens", ["Boutons sombres, palette CSS hexadécimale et liens entre étoiles."]],
+    ["Éditeur Web", ["Renommage par double-clic, coloration et autocomplétion HTML, CSS et JavaScript hors ligne."]],
+    ["Projets Web", ["Création de sites et aperçu en direct. Correction du compteur de fichiers Python."]],
   ];
 
-  for (const [number, title, changes] of releases) {
+  for (const [title, changes] of legacyFeatures) {
     const release = document.createElement("section");
     release.className = "lab-release";
     const heading = document.createElement("h4");
-    heading.textContent = `v${number} · ${title}`;
+    heading.textContent = title;
     const list = document.createElement("ul");
     for (const change of changes) {
       const item = document.createElement("li");
@@ -53,6 +53,10 @@
     }
     release.append(heading, list);
     el("updates-history").append(release);
+  }
+
+  function presentNotes(text) {
+    return text?.replace(/^Historique Git avant cette version$/m, "Commits antérieurs · versions de publication non vérifiées") || "";
   }
 
   function showState(state, message) {
@@ -76,7 +80,7 @@
       const result = await invoke("check_app_update");
       if (result.state === "available") {
         candidate = result.version;
-        notes.textContent = result.notes || "";
+        notes.textContent = presentNotes(result.notes);
         notes.hidden = !result.notes;
         install.hidden = false;
         install.textContent = candidate === downloadedVersion ? "Installer et relancer" : "Installer la mise à jour";
@@ -149,7 +153,7 @@
     localVersion = version;
     el("app-version-value").textContent = `v${version}`;
     el("updates-installed-title").textContent = `Version ${version} · Nouveautés et historique`;
-    el("updates-installed-notes").textContent = installedNotes || "Aucun message de commit pour cette version.";
+    el("updates-installed-notes").textContent = presentNotes(installedNotes) || "Aucun message de commit pour cette version.";
     el("updates-installed").hidden = false;
     showState("unknown", `Version ${version} installée.`);
     if (localStorage.getItem(seenKey) !== version && !dialog.open

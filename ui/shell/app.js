@@ -452,6 +452,7 @@ const drawerBadge = document.getElementById("drawer-badge");
 const consoleOut = document.getElementById("console-output");
 const consoleStatus = document.getElementById("console-status");
 const btnRun = document.getElementById("btn-run");
+const btnDelete = document.getElementById("btn-delete");
 const btnSave = document.getElementById("btn-save");
 const btnStop = document.getElementById("btn-stop");
 const btnEco = document.getElementById("btn-eco");
@@ -545,7 +546,7 @@ function renderOpenTabs() {
     select.type = "button";
     select.className = "lab-open-tab-select";
     select.textContent = name;
-    select.title = path;
+    select.title = doc.file.external?.display_path ?? path;
     if (currentFile?.path === path) select.setAttribute("aria-current", "true");
     select.onclick = () => openFileInStudio(doc.file);
 
@@ -553,7 +554,7 @@ function renderOpenTabs() {
     close.type = "button";
     close.className = "lab-open-tab-close";
     close.textContent = "×";
-    close.setAttribute("aria-label", `Fermer ${path}`);
+    close.setAttribute("aria-label", `Fermer ${doc.file.external?.name ?? path}`);
     close.onclick = () => closeFileTab(path);
     tab.append(select, close);
     return tab;
@@ -658,7 +659,7 @@ function findArduinoSketch(filePath) {
 }
 
 function currentArduinoTarget() {
-  if (drawer.hidden || !ARDUINO_EXTENSIONS.has(currentFile?.ext)) return null;
+  if (drawer.hidden || currentFile?.external || !ARDUINO_EXTENSIONS.has(currentFile?.ext)) return null;
   const sketchPath = findArduinoSketch(currentFile.path);
   return sketchPath === null ? null : { vaultPath, sketchPath };
 }
@@ -675,6 +676,8 @@ function arduinoHeaders(filePath) {
 
 async function readProjectJavaScript() {
   const path = currentFile.path;
+  if (currentFile.external) return getWebFiles().filter(file => file.ext === "js" && file.path !== path)
+    .map(file => [file.path, openDocuments.get(file.path).text]);
   const root = vaultPath;
   const files = getWebFiles().filter(file => file.ext === "js" && file.path !== path);
   const drafts = new Map(files.map(file => [file.path, activeDraft(file.path)]));
@@ -686,7 +689,8 @@ async function readProjectJavaScript() {
 
 function getWebFiles() {
   const project = webProjectPath(currentFile.path);
-  return filesList.filter(file =>
+  const files = currentFile.external ? [...openDocuments.values()].map(doc => doc.file) : filesList;
+  return files.filter(file =>
     WEB_EXTENSIONS.has(file.ext) && webProjectPath(file.path) === project
   ).sort((a, b) => a.path.localeCompare(b.path));
 }
@@ -704,7 +708,7 @@ function updateWebTabs() {
     button.textContent = project ? file.path.slice(project.length + 1) : file.path;
     if (file.path === currentFile.path) button.setAttribute("aria-current", "true");
     else button.removeAttribute("aria-current");
-    button.title = "Double-clique pour renommer";
+    button.title = file.external?.display_path ?? "Double-clique pour renommer";
     button.onclick = () => openFileInStudio(file);
     button.ondblclick = () => openRenameModal(file);
     return button;
@@ -743,7 +747,9 @@ async function refreshWebPreview(request) {
   }
 
   const root = vaultPath;
+  const external = currentFile?.external;
   const readFiles = async (paths) => {
+    if (external) return paths.map(path => openDocuments.get(path).text);
     const drafts = paths.map(activeDraft);
     const diskPaths = paths.filter((path, index) => drafts[index] === undefined);
     const contents = diskPaths.length ? await invoke("read_web_files", {
@@ -773,20 +779,21 @@ async function refreshWebPreview(request) {
 function configureStudio() {
   const isWeb = WEB_EXTENSIONS.has(currentFile.ext);
   const isArduino = ARDUINO_EXTENSIONS.has(currentFile.ext);
+  const isArduinoProject = isArduino && !currentFile.external;
   const extensionEditor = BlackHoleTools.language(currentFile.ext);
   const isPython = currentFile.ext === "py" || currentFile.ext === "md";
   drawer.classList.toggle("is-web", isWeb);
-  drawer.classList.toggle("is-arduino", isArduino);
+  drawer.classList.toggle("is-arduino", isArduinoProject);
   webTabs.hidden = !isWeb;
   webPreview.hidden = !isWeb;
   btnColor.hidden = !isWeb;
   btnArduinoCli.hidden = !isArduino;
-  btnArduinoUpload.hidden = !isArduino;
-  arduinoTools.hidden = !isArduino;
+  btnArduinoUpload.hidden = !isArduinoProject;
+  arduinoTools.hidden = !isArduinoProject;
   if (ArduinoSchematic.isOpen && !ArduinoSchematic.matches(currentArduinoTarget())) ArduinoSchematic.hide();
   editorHost.hidden = isWeb || isArduino || Boolean(extensionEditor);
   codeMirrorEditorHost.hidden = !isWeb && !isArduino && !extensionEditor;
-  if (isArduino) {
+  if (isArduinoProject) {
     arduinoTools.append(studioConsole);
     setArduinoConsoleOpen(arduinoConsoleOpen);
   } else {
@@ -797,8 +804,8 @@ function configureStudio() {
   btnRun.textContent = isWeb ? "↻ Aperçu" : isArduino ? "✓ Compiler" : "▶ Exécuter";
   btnRun.title = isWeb ? "Actualiser l’aperçu (Ctrl+Entrée)" :
     isArduino ? "Compiler pour Arduino Uno (Ctrl+Entrée)" : "Exécuter Python (Ctrl+Entrée)";
-  btnRun.hidden = !isWeb && !isArduino && !isPython;
-  arduinoSerial.show(isArduino);
+  btnRun.hidden = !isWeb && !isArduinoProject && !isPython;
+  arduinoSerial.show(isArduinoProject);
   clearTimeout(savedLabelTimer);
   btnSave.textContent = "Sauver";
   if (isWeb) {
@@ -905,6 +912,7 @@ async function openFileInStudio(fileObj) {
   try {
     let doc = openDocuments.get(fileObj.path);
     if (!doc) {
+      if (fileObj.external) return;
       const content = await invoke("read_file", { vaultPath: root, relPath: fileObj.path });
       if (request !== fileOpenRequest || root !== vaultPath) return;
       const text = content.replace(/\r\n?/g, "\n");
@@ -946,8 +954,9 @@ function mountStudio(doc) {
   clearCodeMirrorEditor();
   currentFile = doc.file;
   if (isWebPage(currentFile)) webPagePath = currentFile.path;
-  drawerPath.textContent = currentFile.path;
+  drawerPath.textContent = currentFile.external?.display_path ?? currentFile.path;
   drawerBadge.textContent = currentFile.ext.toUpperCase();
+  btnDelete.hidden = Boolean(currentFile.external);
   configureStudio();
   const isWeb = WEB_EXTENSIONS.has(currentFile.ext);
   const extensionEditor = BlackHoleTools.language(currentFile.ext);
@@ -961,7 +970,7 @@ function mountStudio(doc) {
       getPath: () => doc.file.path,
       readProjectJavaScript,
       openColorPicker: openStudioColorPicker,
-      getArduinoHeaders: () => arduinoHeaders(doc.file.path),
+      getArduinoHeaders: () => doc.file.external ? [] : arduinoHeaders(doc.file.path),
     });
   } else {
     editor.value = doc.text;
@@ -994,6 +1003,8 @@ function closeDrawer() {
 function removeOpenDocument(path) {
   const paths = [...openDocuments.keys()];
   const index = paths.indexOf(path);
+  const external = openDocuments.get(path)?.file.external;
+  if (external) releaseExternalFile(external.path);
   openDocuments.delete(path);
   let nextFile;
   if (currentFile?.path === path) {
@@ -1010,7 +1021,7 @@ function removeOpenDocument(path) {
 async function closeFileTab(path) {
   const doc = openDocuments.get(path);
   if (!doc || fileOperation) return;
-  if (isDirty(doc) && !confirm(`Fermer « ${path} » sans enregistrer ?`)) return;
+  if (isDirty(doc) && !confirm(`Fermer « ${doc.file.external?.name ?? path} » sans enregistrer ?`)) return;
   fileOpenRequest++;
   const nextFile = removeOpenDocument(path);
   if (nextFile) await openFileInStudio(nextFile);
@@ -1111,7 +1122,7 @@ async function runCurrentCode() {
     return;
   }
   if (ARDUINO_EXTENSIONS.has(currentFile.ext)) {
-    await compileArduino(doc);
+    if (!doc.file.external) await compileArduino(doc);
     return;
   }
   if (pythonRunning || !["py", "md"].includes(currentFile.ext)) return;
@@ -1160,8 +1171,8 @@ async function runCurrentCode() {
   try {
     const res = await invoke("run_python", {
       code: codeToRun,
-      relPath: doc.file.ext === "py" ? doc.file.path : null,
-      vaultPath: root,
+      relPath: doc.file.ext === "py" ? doc.file.external?.name ?? doc.file.path : null,
+      vaultPath: doc.file.external?.parent ?? root,
       pythonBin: localStorage.getItem("sbbh_python_bin") || null,
       output,
     });
@@ -1183,11 +1194,12 @@ async function runCurrentCode() {
 async function persistDocument(doc, root) {
   if (!isDirty(doc)) return false;
   const text = doc.text;
-  const content = doc.lineEnding === "\n" ? text : text.replaceAll("\n", doc.lineEnding);
-  await invoke("save_file", { vaultPath: root, relPath: doc.file.path, content });
+  const content = (doc.bom ?? "") + (doc.lineEnding === "\n" ? text : text.replaceAll("\n", doc.lineEnding));
+  if (doc.file.external) await invoke("save_external_file", { path: doc.file.external.path, content });
+  else await invoke("save_file", { vaultPath: root, relPath: doc.file.path, content });
   doc.saved = text;
   updateTabDirtyState(doc);
-  gitPanel.refreshSoon();
+  if (!doc.file.external) gitPanel.refreshSoon();
   return true;
 }
 
@@ -1209,7 +1221,7 @@ async function saveCurrentFile(silent = false) {
       } else {
         setDocumentConsole(doc, doc.console?.text ?? "", "Sauvegardé ✓", doc.console?.error);
       }
-      if (changed) await reloadVault();
+      if (changed && !file.external) await reloadVault();
     }
     return true;
   } catch (err) {
@@ -1221,7 +1233,7 @@ async function saveCurrentFile(silent = false) {
 }
 
 async function deleteCurrentFile() {
-  if (!currentFile || fileOperation) return;
+  if (!currentFile || currentFile.external || fileOperation) return;
   const { path } = currentFile;
   if (!confirm(`Supprimer définitivement "${path}" ?`)) return;
   fileOperation = true;
@@ -1240,7 +1252,7 @@ async function deleteCurrentFile() {
 }
 
 function openRenameModal(file = currentFile) {
-  if (!file || drawer.hidden || fileOperation) return;
+  if (!file || file.external || drawer.hidden || fileOperation) return;
   const filename = file.path.split("/").pop();
   const dot = filename.lastIndexOf(".");
   const extension = filename.slice(dot);
@@ -1584,7 +1596,7 @@ document.getElementById("close-new-menu").onclick = () => newMenu.close();
 
 function newFile(kind) {
   newMenu.close();
-  const project = !drawer.hidden && WEB_EXTENSIONS.has(currentFile?.ext)
+  const project = !drawer.hidden && !currentFile?.external && WEB_EXTENSIONS.has(currentFile?.ext)
     ? webProjectPath(currentFile.path)
     : null;
   openModal(
@@ -1668,6 +1680,9 @@ async function switchFolder(newPath) {
     ArduinoSchematic.reset();
     currentFile = null;
     clearCodeMirrorEditor();
+    for (const { file } of openDocuments.values()) {
+      if (file.external) releaseExternalFile(file.external.path);
+    }
     openDocuments.clear();
     renderOpenTabs();
     vaultPath = newPath;
@@ -1686,7 +1701,7 @@ async function switchFolder(newPath) {
 }
 
 async function chooseFolder() {
-  if (choosingFolder) return;
+  if (choosingFolder || choosingFile) return;
   newMenu.close();
   choosingFolder = folderAdd.disabled = folderButton.disabled = true;
   try {
@@ -1700,6 +1715,67 @@ async function chooseFolder() {
 }
 
 folderButton.onclick = folderAdd.onclick = chooseFolder;
+
+const externalDialog = document.getElementById("external-file-dialog");
+let externalPreview;
+let choosingFile = false;
+
+function releaseExternalFile(path) {
+  invoke("forget_external_file", { path }).catch(console.error);
+}
+
+function showExternalFile(external) {
+  const path = `external:${encodeURIComponent(external.parent)}/${external.name}`;
+  const draft = openDocuments.get(path)?.text;
+  const text = draft ?? external.text.replace(/^\uFEFF/, "");
+  const source = document.getElementById("external-file-source");
+  externalPreview = { external, path };
+  document.getElementById("external-file-title").textContent = external.name;
+  document.getElementById("external-file-path").textContent = external.display_path;
+  source.textContent = text.length > 60_000 ? text.slice(0, 60_000) + "\n\n… Aperçu limité aux 60 000 premiers caractères." : text;
+  source.scrollTop = 0;
+  if (!externalDialog.open) externalDialog.showModal();
+}
+
+async function chooseExternalFile() {
+  if (choosingFile || choosingFolder || fileOperation) return;
+  newMenu.close();
+  choosingFile = true;
+  try {
+    const external = await invoke("choose_external_file");
+    if (external) showExternalFile(external);
+  } catch (error) {
+    alert(String(error));
+  } finally {
+    choosingFile = false;
+  }
+}
+
+document.getElementById("btn-open-external-file").onclick = chooseExternalFile;
+document.getElementById("btn-open-file-sidebar").onclick = chooseExternalFile;
+document.getElementById("external-file-close").onclick = () => externalDialog.close();
+externalDialog.addEventListener("close", () => {
+  if (externalPreview && !openDocuments.has(externalPreview.path)) releaseExternalFile(externalPreview.external.path);
+  externalPreview = undefined;
+});
+document.getElementById("external-file-edit").onclick = () => {
+  if (!externalPreview || fileOperation) return;
+  const { external, path } = externalPreview;
+  let doc = openDocuments.get(path);
+  if (!doc) {
+    const match = external.name.match(/\.(\w+)$/);
+    const file = { path, ext: match?.[1].toLowerCase() || "txt", external: {
+      path: external.path, display_path: external.display_path, parent: external.parent, name: external.name,
+    } };
+    const text = external.text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+    const bom = external.text.startsWith("\uFEFF") ? "\uFEFF" : "";
+    const lineEnding = external.text.match(/\r\n|\n|\r/)?.[0] ?? "\n";
+    doc = { file, text, saved: text, bom, lineEnding, position: null, console: null };
+    openDocuments.set(path, doc);
+  }
+  externalDialog.close();
+  openFileInStudio(doc.file);
+};
 workspacePicker.onchange = async () => {
   const path = workspacePicker.value;
   workspacePicker.value = vaultPath;
@@ -1785,7 +1861,7 @@ document.addEventListener("black-hole-language-change", () => {
 });
 
 window.addEventListener("keydown", (e) => {
-  if (e.defaultPrevented || !document.getElementById("lab-modal").hidden || colorDialog.open || newMenu.open || BlackHoleTools.isOpen
+  if (e.defaultPrevented || !document.getElementById("lab-modal").hidden || colorDialog.open || newMenu.open || externalDialog.open || BlackHoleTools.isOpen
       || document.getElementById("updates-dialog").open) return;
   if (e.key === "F2" && !drawer.hidden) {
     e.preventDefault();
@@ -1796,7 +1872,8 @@ window.addEventListener("keydown", (e) => {
     searchInput.select();
   } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "o") {
     e.preventDefault();
-    chooseFolder();
+    if (e.shiftKey) chooseFolder();
+    else chooseExternalFile();
   } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s" && !drawer.hidden) {
     e.preventDefault();
     saveCurrentFile(false);
@@ -1825,6 +1902,12 @@ window.addEventListener("keydown", (e) => {
   localStorage.setItem("sbbh_workspace_folders", JSON.stringify(workspaceFolders));
   updateFolderPicker();
   await reloadVault().catch(error => alert(String(error)));
+  invoke("startup_external_file").then(external => {
+    if (external) {
+      document.getElementById("updates-dialog").close();
+      showExternalFile(external);
+    }
+  }).catch(error => alert(String(error)));
 
   let mainSource = await fetch("./graph/black-hole-map.js").then((r) => r.text());
 

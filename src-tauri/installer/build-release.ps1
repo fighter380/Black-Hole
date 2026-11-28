@@ -37,7 +37,7 @@ function Get-ReleaseNotes([string]$Commit, [string]$Base, [string]$PreviousPath,
         } else {
             $archive = git -c i18n.logOutputEncoding=UTF-8 log '--format=- %s (%h)' $Base
             if ($LASTEXITCODE -ne 0) { throw "Impossible de lire les anciens commits." }
-            $notes += '', 'Historique Git avant cette version'
+            $notes += '', 'Commits antérieurs · versions de publication non vérifiées'
             $notes += $archive
         }
     }
