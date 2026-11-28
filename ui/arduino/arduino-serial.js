@@ -83,7 +83,7 @@ window.ArduinoSerial = {
       try {
         const available = await invoke("list_serial_ports");
         available.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
-        port.replaceChildren(new Option(available.length ? "Choisir un port" : "Aucun port détecté", ""));
+        port.replaceChildren(new Option("Aucun port", ""));
         for (const entry of available) {
           port.add(new Option(entry.description ? `${entry.name} · ${entry.description}` : entry.name, entry.name));
         }

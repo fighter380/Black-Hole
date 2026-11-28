@@ -14,7 +14,12 @@
   const rotate = el("schematic-rotate");
   const remove = el("schematic-remove");
   const componentPicker = el("schematic-components");
-  const categoryPicker = el("schematic-category");
+  const addMenu = el("schematic-add");
+  const search = el("schematic-search");
+  const inspector = el("schematic-inspector");
+  const verify = el("schematic-verify");
+  const moreMenu = el("arduino-more");
+  const labelCaption = inspector.querySelector("label");
   const grid = el("schematic-grid");
   const drawing = el("schematic-drawing");
   const width = 1000;
@@ -77,12 +82,15 @@
   let project;
   let model;
   let selected = null;
+  let editingSelection = false;
+  let previousPress;
   let placementKind = null;
   let pinStart = null;
   let drag = null;
   let pan = null;
   let spaceHeld = false;
   let camera = { x: 0, y: 0, width };
+  let cameraRatio = height / width;
   let suppressCanvasClick = false;
   let dirty = false;
   let saving = false;
@@ -167,20 +175,22 @@
 
   function renderControls() {
     const part = selectedPart();
-    rotate.disabled = !part;
+    inspector.hidden = !editingSelection || !selected;
+    rotate.hidden = editLabel.hidden = labelCaption.hidden = !part;
     remove.disabled = !selected;
     editLabel.disabled = !part;
     editLabel.value = part?.label ?? "";
     save.disabled = saving || !dirty;
+    moreMenu.classList.toggle("has-schematic-changes", dirty);
     simulate.disabled = compiling;
-    simulate.textContent = worker ? "Arrêter la simulation" : "Compiler et simuler";
+    simulate.textContent = worker ? "■ Arrêter" : "▶ Simuler";
   }
 
   function selectComponent(kind) {
     placementKind = kind;
     if (kind) pinStart = null;
     canvas.classList.toggle("is-placing", Boolean(kind));
-    for (const button of componentPicker.children) {
+    for (const button of componentPicker.querySelectorAll("button")) {
       button.setAttribute("aria-pressed", String(button.dataset.kind === kind));
     }
   }
@@ -194,32 +204,65 @@
     changed(`${types[kind].title} ajouté.`);
   }
 
+  const categories = new Map(Object.entries({
+    basics: "Composants de base", motors: "Moteurs", display: "Affichage et RGB", boards: "Cartes",
+  }).map(([key, title]) => {
+    const section = document.createElement("section");
+    const heading = document.createElement("h3");
+    const buttons = document.createElement("div");
+    heading.textContent = title;
+    buttons.className = "lab-components";
+    section.append(heading, buttons);
+    componentPicker.append(section);
+    return [key, { section, buttons }];
+  }));
+  const searchable = value => value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLocaleLowerCase();
   for (const [kind, type] of Object.entries(types)) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "lab-btn";
     button.dataset.kind = kind;
-    button.dataset.category = type.category ?? (kind === "uno" ? "boards" : "basics");
-    button.textContent = type.title;
+    const category = type.category ?? (kind === "uno" ? "boards" : "basics");
+    button.dataset.search = searchable(`${type.title} ${type.label}`);
+    const icon = svg("svg", { viewBox: `-${type.size[0] / 2 + 5} -${type.size[1] / 2 + 5} ${type.size[0] + 10} ${type.size[1] + 10}`,
+      "aria-hidden": "true" });
+    icon.innerHTML = type.symbol;
+    icon.querySelectorAll("text").forEach(text => text.remove());
+    const name = document.createElement("span");
+    name.textContent = type.title;
+    button.append(icon, name);
     button.setAttribute("aria-pressed", "false");
     button.onclick = () => {
       selectComponent(placementKind === kind ? null : kind);
+      addMenu.open = false;
       renderCanvas();
       message(placementKind ? `${type.title} · Clique sur le schéma pour le placer. Entrée le place au centre.`
         : "Placement annulé.");
-      if (placementKind) canvas.focus();
+      canvas.focus();
     };
-    componentPicker.append(button);
+    categories.get(category).buttons.append(button);
   }
-  categoryPicker.onchange = () => {
-    for (const button of componentPicker.children) {
-      button.hidden = categoryPicker.value !== "all" && button.dataset.category !== categoryPicker.value;
+  function filterCatalog() {
+    const query = searchable(search.value.trim());
+    let results = 0;
+    for (const { section, buttons } of categories.values()) {
+      let visible = false;
+      for (const button of buttons.children) {
+        button.hidden = !button.dataset.search.includes(query);
+        visible ||= !button.hidden;
+      }
+      section.hidden = !visible;
+      if (visible) results++;
     }
-    if (placementKind && ![...componentPicker.children].some(button => !button.hidden && button.dataset.kind === placementKind)) {
-      selectComponent(null);
-      message("Placement annulé.");
-    }
-  };
+    el("schematic-no-results").hidden = Boolean(results);
+  }
+  search.oninput = filterCatalog;
+  addMenu.addEventListener("toggle", () => {
+    if (!addMenu.open) return;
+    search.value = "";
+    filterCatalog();
+    search.focus();
+  });
 
   function updateLights() {
     for (const marker of canvas.querySelectorAll("[data-sim-light]")) {
@@ -249,7 +292,7 @@
     return result;
   }
 
-  el("schematic-verify").onclick = () => {
+  verify.onclick = () => {
     const result = verifyCircuit();
     if (result.fatal) message("La vérification du câblage est indisponible pour ce schéma.");
     else if (result.errors.length) message("Le câblage des LED comporte des erreurs.");
@@ -366,10 +409,12 @@
     updateLights();
   }
 
-  function select(type, id) {
+  function select(type, id, edit = false) {
+    editingSelection = edit || (editingSelection && selected?.type === type && selected.id === id);
     selected = id ? { type, id } : null;
     renderCanvas();
     renderControls();
+    if (edit) (type === "part" ? editLabel : remove).focus();
   }
 
   function changed(text) {
@@ -417,7 +462,7 @@
     return Math.max(-200_000, Math.min(200_000, Math.round(value / 5) * 5));
   }
 
-  const cameraHeight = () => camera.width * height / width;
+  const cameraHeight = () => camera.width * cameraRatio;
   const cameraCenter = () => ({ x: camera.x + camera.width / 2, y: camera.y + cameraHeight() / 2 });
   function paintCamera() {
     const h = cameraHeight();
@@ -427,6 +472,16 @@
     }
     el("schematic-zoom").value = `${Math.round(100 * width / camera.width)} %`;
   }
+
+  new ResizeObserver(([{ contentRect }]) => {
+    if (!contentRect.width || !contentRect.height) return;
+    const ratio = contentRect.height / contentRect.width;
+    if (Math.abs(ratio - cameraRatio) < 0.001) return;
+    const centerY = cameraCenter().y;
+    cameraRatio = ratio;
+    camera.y = centerY - cameraHeight() / 2;
+    paintCamera();
+  }).observe(canvas);
 
   function zoom(factor, anchor = cameraCenter()) {
     const next = Math.max(220, Math.min(450_000, camera.width * factor));
@@ -445,8 +500,8 @@
       const right = Math.max(...boxes.map(box => box.right));
       const top = Math.min(...boxes.map(box => box.top));
       const bottom = Math.max(...boxes.map(box => box.bottom));
-      const w = Math.max(360, right - left + 125, (bottom - top + 105) * width / height);
-      camera = { x: (left + right - w) / 2, y: (top + bottom - w * height / width) / 2, width: w };
+      const w = Math.max(360, right - left + 125, (bottom - top + 105) / cameraRatio);
+      camera = { x: (left + right - w) / 2, y: (top + bottom - w * cameraRatio) / 2, width: w };
     }
     paintCamera();
   }
@@ -470,6 +525,18 @@
     }
     if (placementKind || event.button !== 0 || event.target.closest("[data-pin]")) return;
     const element = event.target.closest("[data-part]");
+    const wire = event.target.closest("[data-wire]");
+    const id = element?.dataset.part ?? wire?.dataset.wire;
+    const press = { id, x: event.clientX, y: event.clientY, time: event.timeStamp };
+    const doubleClick = id && previousPress?.id === id && press.time - previousPress.time < 450
+      && Math.hypot(press.x - previousPress.x, press.y - previousPress.y) < 6;
+    previousPress = id && !doubleClick ? press : null;
+    if (doubleClick) {
+      event.preventDefault();
+      suppressCanvasClick = true;
+      select(element ? "part" : "wire", id, true);
+      return;
+    }
     if (!element) return;
     const part = model.parts.find(part => part.id === element.dataset.part);
     if (!part) return;
@@ -504,13 +571,16 @@
       return;
     }
     if (!drag || drag.id !== event.pointerId) return;
-    if (drag.part.x !== drag.x || drag.part.y !== drag.y) changed("Composant déplacé.");
+    if (drag.part.x !== drag.x || drag.part.y !== drag.y) {
+      previousPress = null;
+      changed("Composant déplacé.");
+    }
     drag = null;
   }
   canvas.addEventListener("pointerup", finishDrag);
   canvas.addEventListener("pointercancel", finishDrag);
 
-  function activate(target) {
+  function activate(target, edit = false) {
     const terminal = target.closest("[data-pin]");
     if (terminal) {
       choosePin(terminal);
@@ -518,12 +588,12 @@
     }
     const wire = target.closest("[data-wire]");
     if (wire) {
-      select("wire", wire.dataset.wire);
+      select("wire", wire.dataset.wire, edit);
       return;
     }
     const part = target.closest("[data-part]");
     if (part) {
-      select("part", part.dataset.part);
+      select("part", part.dataset.part, edit);
     } else if (target === canvas || target === grid) {
       pinStart = null;
       select(null, null);
@@ -550,7 +620,7 @@
         placeComponent(cameraCenter());
         return;
       }
-      activate(event.target);
+      activate(event.target, event.key === "Enter");
     }
   });
   canvas.addEventListener("keyup", event => { if (event.key === " ") spaceHeld = false; });
@@ -567,6 +637,7 @@
       model.wires = model.wires.filter(wire => wire.id !== id);
     }
     selected = null;
+    editingSelection = false;
     changed(type === "wire" ? "Fil supprimé." : "Composant supprimé.");
   }
 
@@ -577,12 +648,18 @@
     changed("Composant tourné.");
   };
   remove.onclick = removeSelected;
+  el("schematic-inspector-close").onclick = () => {
+    editingSelection = false;
+    renderControls();
+    canvas.focus();
+  };
   editLabel.oninput = () => {
     const part = selectedPart();
     if (!part) return;
     part.label = editLabel.value;
     dirty = true;
     save.disabled = saving;
+    moreMenu.classList.add("has-schematic-changes");
     renderCanvas();
     message("Nom ou valeur modifié.");
   };
@@ -601,6 +678,8 @@
     } finally {
       saving = false;
       save.disabled = !dirty;
+      save.hidden = panel.hidden && !dirty;
+      moreMenu.classList.toggle("has-schematic-changes", dirty);
     }
   }
 
@@ -608,18 +687,26 @@
     simulationRequest++;
     selectComponent(null);
     stopSimulation();
-    if (!panel.hidden && panel.contains(document.activeElement)) toggle.focus();
+    if (!panel.hidden && panel.contains(document.activeElement)) moreMenu.querySelector("summary").focus();
     panel.hidden = true;
+    simulate.hidden = addMenu.hidden = verify.hidden = true;
+    save.hidden = !dirty;
+    addMenu.open = false;
+    inspector.hidden = true;
+    editingSelection = false;
     toggle.setAttribute("aria-expanded", "false");
+    toggle.textContent = "Afficher le schéma";
   }
 
   function show() {
     panel.hidden = false;
+    simulate.hidden = addMenu.hidden = verify.hidden = save.hidden = false;
     toggle.setAttribute("aria-expanded", "true");
+    toggle.textContent = "Masquer le schéma";
     renderCanvas();
     renderControls();
     message(dirty ? "Modifications du schéma encore à enregistrer."
-      : "Ajoute des composants, puis clique sur deux broches pour les relier.");
+      : "Double-clique sur un fil ou un composant pour l’éditer.");
   }
 
   function matches(target) {
@@ -627,7 +714,6 @@
   }
 
   save.onclick = saveDiagram;
-  el("schematic-close").onclick = hide;
   panel.addEventListener("keydown", event => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
       event.preventDefault();
@@ -636,7 +722,9 @@
     if (event.key === "Delete" && !event.target.closest("input,select")) removeSelected();
     if (event.key === "Escape") {
       event.preventDefault();
-      if (placementKind) {
+      if (editingSelection) {
+        el("schematic-inspector-close").click();
+      } else if (placementKind) {
         selectComponent(null);
         message("Placement annulé.");
       } else if (pinStart) {
@@ -678,6 +766,9 @@
       hide();
       project = model = compileFirmware = null;
       dirty = false;
+      selected = null;
+      save.hidden = true;
+      moreMenu.classList.remove("has-schematic-changes");
     },
     sourceChanged() {
       if (panel.hidden || (!worker && !compiling)) return;
@@ -708,8 +799,6 @@
         diagnostics.hidden = true;
         selected = pinStart = drag = null;
         dirty = false;
-        const name = (target.sketchPath || target.vaultPath).split(/[\\/]+/).filter(Boolean).pop();
-        el("schematic-project").textContent = [target.sketchPath, `${name}.ino`].filter(Boolean).join("/");
         show();
       } finally {
         opening = false;

@@ -92,15 +92,37 @@
         <button id="drawer-path" class="lab-path" type="button" title="Double-clique pour renommer le fichier (F2)"></button>
       </div>
       <div class="lab-drawer-actions">
-        <button id="btn-arduino-cli" class="lab-btn" type="button" title="Configurer le chemin d’Arduino CLI" hidden>CLI Arduino</button>
-          <div class="lab-serial-port-picker" id="arduino-port-picker" hidden>
-            <label for="arduino-port">Uno</label>
-            <select id="arduino-port" class="lab-control"><option value="">Choisir un port</option></select>
-            <button id="arduino-refresh-ports" type="button" class="lab-btn" aria-label="Actualiser les ports" title="Actualiser les ports">↻</button>
-          </div>
-        <button id="btn-arduino-upload" class="lab-btn" type="button" hidden>Téléverser</button>
+        <div class="lab-serial-port-picker" id="arduino-port-picker" hidden>
+          <label for="arduino-port">Uno</label>
+          <select id="arduino-port" class="lab-control" aria-label="Port de la carte Arduino Uno"><option value="">Aucun port</option></select>
+        </div>
         <button id="btn-color" class="lab-btn lab-btn-color" type="button" title="Insérer ou modifier une couleur hexadécimale" hidden>Couleur</button>
         <button id="btn-run" class="lab-btn lab-btn-run" type="button" title="Exécuter Python / Tkinter (Ctrl+Entrée)">▶ Run</button>
+        <button id="btn-arduino-upload" class="lab-btn" type="button" hidden>Téléverser</button>
+        <button id="schematic-simulate" type="button" class="lab-btn" title="Compiler et simuler le croquis" hidden>▶ Simuler</button>
+        <details id="schematic-add" class="lab-arduino-menu" hidden>
+          <summary class="lab-btn lab-btn-run">＋ Ajouter</summary>
+          <section class="lab-arduino-popup lab-parts-popup" aria-labelledby="schematic-catalog-title">
+            <h2 id="schematic-catalog-title">Ajouter un composant</h2>
+            <input id="schematic-search" class="lab-control" type="search" placeholder="Rechercher…" aria-label="Rechercher un composant" />
+            <div id="schematic-components"></div>
+            <p id="schematic-no-results" hidden>Aucun composant trouvé.</p>
+          </section>
+        </details>
+        <details id="arduino-more" class="lab-arduino-menu" hidden>
+          <summary class="lab-btn" aria-label="Autres actions Arduino" title="Autres actions Arduino">⋯</summary>
+          <div class="lab-arduino-popup lab-arduino-commands">
+            <button id="btn-arduino-schematic" class="lab-btn" type="button" aria-controls="arduino-schematic" aria-expanded="false">Afficher le schéma</button>
+            <button id="schematic-verify" type="button" class="lab-btn" hidden>Vérifier le câblage</button>
+            <button id="schematic-save" type="button" class="lab-btn" hidden>Enregistrer le schéma</button>
+            <button id="arduino-save-code" type="button" class="lab-btn">Enregistrer le code</button>
+            <button id="arduino-open-build" type="button" class="lab-btn">Sortie de compilation</button>
+            <button id="arduino-open-serial" type="button" class="lab-btn">Moniteur série</button>
+            <button id="arduino-refresh-ports" type="button" class="lab-btn">Actualiser les ports</button>
+            <button id="btn-arduino-cli" class="lab-btn" type="button">Configurer Arduino CLI</button>
+            <button id="arduino-delete-code" type="button" class="lab-btn lab-btn-danger">Supprimer le fichier</button>
+          </div>
+        </details>
         <button id="btn-save" class="lab-btn" type="button" title="Sauvegarder (Ctrl+S)">Sauver</button>
         <button id="btn-delete" class="lab-btn lab-btn-danger" type="button" title="Supprimer ce fichier">✕</button>
         <button id="btn-close-drawer" class="lab-btn" type="button">Fermer</button>
@@ -126,57 +148,41 @@
         <iframe id="web-preview-frame" title="Aperçu du site" sandbox="allow-scripts" referrerpolicy="no-referrer" hidden></iframe>
       </section>
       <section id="arduino-tools" class="lab-arduino-tools" aria-label="Outils Arduino" hidden>
-        <nav id="arduino-console-controls" class="lab-console-tabs lab-arduino-tabs" aria-label="Panneaux Arduino" hidden>
-          <button id="btn-arduino-schematic" class="lab-btn" type="button" aria-controls="arduino-schematic" aria-expanded="false">Schéma</button>
-          <button id="arduino-build-tab" class="lab-btn" type="button" aria-pressed="true">Compilation</button>
-          <button id="arduino-serial-tab" class="lab-btn" type="button" aria-pressed="false">Série</button>
-          <button id="arduino-console-toggle" class="lab-btn" type="button" aria-expanded="true" aria-controls="studio-console" title="Replier la console" aria-label="Replier la console">⌄</button>
-        </nav>
-      <section id="arduino-schematic" hidden class="lab-schematic" aria-labelledby="schematic-title">
-        <header class="lab-schematic-header">
-          <div><h2 id="schematic-title">Schéma électrique</h2><span id="schematic-project"></span></div>
-          <div class="lab-schematic-actions">
-            <button id="schematic-verify" type="button" class="lab-btn">Vérifier le câblage</button>
-            <button id="schematic-simulate" type="button" class="lab-btn lab-btn-run">Compiler et simuler</button>
-            <button id="schematic-save" type="button" class="lab-btn lab-btn-run">Enregistrer</button>
-            <button id="schematic-close" type="button" class="lab-btn">Masquer</button>
+        <section id="arduino-schematic" hidden class="lab-schematic" aria-label="Schéma électrique">
+          <div class="lab-schematic-sheet">
+            <svg id="schematic-canvas" viewBox="0 0 1000 580" tabindex="0" aria-label="Schéma électrique. Molette pour zoomer, glisser sur le fond pour déplacer la vue.">
+              <defs><pattern id="schematic-grid-pattern" width="25" height="25" patternUnits="userSpaceOnUse">
+                <path d="M 25 0 H 0 V 25" fill="none" stroke="#343740" stroke-width="1"/>
+              </pattern></defs>
+              <rect id="schematic-grid" x="0" y="0" width="1000" height="580" fill="url(#schematic-grid-pattern)"/>
+              <g id="schematic-drawing"></g>
+            </svg>
+            <div id="schematic-inspector" class="lab-schematic-toolbar" hidden>
+              <label for="schematic-label">Nom / valeur</label>
+              <input id="schematic-label" class="lab-control" type="text" maxlength="40" />
+              <button id="schematic-rotate" type="button" class="lab-btn">Tourner ↻</button>
+              <button id="schematic-remove" type="button" class="lab-btn lab-btn-danger">Supprimer</button>
+              <button id="schematic-inspector-close" type="button" class="lab-btn" aria-label="Fermer les propriétés">×</button>
+            </div>
           </div>
-        </header>
-        <div class="lab-canvas-tools" aria-label="Navigation dans le schéma">
-          <button id="schematic-zoom-out" class="lab-btn" type="button" aria-label="Zoom arrière">−</button>
-          <output id="schematic-zoom" aria-label="Zoom du schéma">100 %</output>
-          <button id="schematic-zoom-in" class="lab-btn" type="button" aria-label="Zoom avant">＋</button>
-          <button id="schematic-fit" class="lab-btn" type="button">Tout cadrer</button>
-        </div>
-        <details class="lab-component-picker" open>
-          <summary>Composants</summary>
-          <select id="schematic-category" class="lab-control" aria-label="Catégorie de composants">
-            <option value="all">Toutes les catégories</option><option value="boards">Cartes</option>
-            <option value="motors">Moteurs et commande</option><option value="display">Affichage et RGB</option>
-            <option value="basics">Composants de base</option>
-          </select>
-          <div id="schematic-components" class="lab-components"></div>
-        </details>
-        <div class="lab-schematic-toolbar">
-          <button id="schematic-rotate" type="button" class="lab-btn">Tourner ↻</button>
-          <button id="schematic-remove" type="button" class="lab-btn lab-btn-danger">Supprimer</button>
-          <label for="schematic-label">Nom / valeur</label>
-          <input id="schematic-label" class="lab-control" type="text" maxlength="40" />
-        </div>
-        <div class="lab-schematic-sheet">
-          <svg id="schematic-canvas" viewBox="0 0 1000 580" tabindex="0" aria-label="Schéma électrique. Molette pour zoomer, glisser sur le fond pour déplacer la vue.">
-            <defs><pattern id="schematic-grid-pattern" width="25" height="25" patternUnits="userSpaceOnUse">
-              <path d="M 25 0 H 0 V 25" fill="none" stroke="#343740" stroke-width="1"/>
-            </pattern></defs>
-            <rect id="schematic-grid" x="0" y="0" width="1000" height="580" fill="url(#schematic-grid-pattern)"/>
-            <g id="schematic-drawing"></g>
-          </svg>
-        </div>
-        <footer id="schematic-status" class="lab-schematic-status" role="status"></footer>
-        <ul id="schematic-diagnostics" class="lab-schematic-diagnostics" aria-label="Vérification du câblage" hidden></ul>
-      </section>
+          <footer class="lab-schematic-footer">
+            <span id="schematic-status" class="lab-schematic-status" role="status"></span>
+            <div class="lab-canvas-tools" aria-label="Navigation dans le schéma">
+              <button id="schematic-zoom-out" class="lab-btn" type="button" aria-label="Zoom arrière">−</button>
+              <output id="schematic-zoom" aria-label="Zoom du schéma">100 %</output>
+              <button id="schematic-zoom-in" class="lab-btn" type="button" aria-label="Zoom avant">＋</button>
+              <button id="schematic-fit" class="lab-btn" type="button" title="Tout cadrer" aria-label="Tout cadrer">⤢</button>
+            </div>
+          </footer>
+          <ul id="schematic-diagnostics" class="lab-schematic-diagnostics" aria-label="Vérification du câblage" hidden></ul>
+        </section>
       </section>
       <div id="studio-console" class="lab-console">
+        <nav id="arduino-console-controls" class="lab-console-tabs lab-arduino-tabs" aria-label="Panneaux Arduino" hidden>
+          <button id="arduino-build-tab" class="lab-btn" type="button" aria-pressed="true">Compilation</button>
+          <button id="arduino-serial-tab" class="lab-btn" type="button" aria-pressed="false">Série</button>
+          <button id="arduino-console-toggle" class="lab-btn" type="button" aria-expanded="true" aria-controls="studio-console" title="Masquer la console" aria-label="Masquer la console">×</button>
+        </nav>
         <div id="studio-console-heading" class="lab-console-header">
           <span id="console-title">Console Python</span>
           <div class="lab-console-actions">

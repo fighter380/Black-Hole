@@ -463,6 +463,7 @@ const btnColor = document.getElementById("btn-color");
 const btnArduinoCli = document.getElementById("btn-arduino-cli");
 const btnArduinoUpload = document.getElementById("btn-arduino-upload");
 const btnArduinoSchematic = document.getElementById("btn-arduino-schematic");
+const arduinoMore = document.getElementById("arduino-more");
 const arduinoTools = document.getElementById("arduino-tools");
 const arduinoConsoleToggle = document.getElementById("arduino-console-toggle");
 const arduinoSerial = ArduinoSerial.create(syncCodeActions, () => setArduinoConsoleOpen(true));
@@ -787,8 +788,11 @@ function configureStudio() {
   webTabs.hidden = !isWeb;
   webPreview.hidden = !isWeb;
   btnColor.hidden = !isWeb;
-  btnArduinoCli.hidden = !isArduino;
+  arduinoMore.hidden = !isArduinoProject;
+  if (arduinoMore.hidden) arduinoMore.open = false;
   btnArduinoUpload.hidden = !isArduinoProject;
+  btnSave.hidden = isArduinoProject;
+  btnDelete.hidden = isArduinoProject || Boolean(currentFile.external);
   arduinoTools.hidden = !isArduinoProject;
   if (ArduinoSchematic.isOpen && !ArduinoSchematic.matches(currentArduinoTarget())) ArduinoSchematic.hide();
   editorHost.hidden = isWeb || isArduino || Boolean(extensionEditor);
@@ -801,7 +805,7 @@ function configureStudio() {
     studioConsole.hidden = !isPython;
   }
   consoleTitle.textContent = isArduino ? "Compilation · Arduino Uno" : "Sortie Python";
-  btnRun.textContent = isWeb ? "↻ Aperçu" : isArduino ? "✓ Compiler" : "▶ Exécuter";
+  btnRun.textContent = isWeb ? "↻ Aperçu" : isArduino ? "✓ Vérifier" : "▶ Exécuter";
   btnRun.title = isWeb ? "Actualiser l’aperçu (Ctrl+Entrée)" :
     isArduino ? "Compiler pour Arduino Uno (Ctrl+Entrée)" : "Exécuter Python (Ctrl+Entrée)";
   btnRun.hidden = !isWeb && !isArduinoProject && !isPython;
@@ -821,10 +825,9 @@ function setArduinoConsoleOpen(open) {
   arduinoConsoleOpen = open;
   studioConsole.hidden = !open;
   arduinoConsoleToggle.setAttribute("aria-expanded", String(open));
-  const label = open ? "Replier la console" : "Déplier la console";
+  const label = open ? "Masquer la console" : "Afficher la console";
   arduinoConsoleToggle.title = label;
   arduinoConsoleToggle.setAttribute("aria-label", label);
-  arduinoConsoleToggle.textContent = open ? "⌄" : "⌃";
 }
 
 function syncCodeActions() {
@@ -956,7 +959,6 @@ function mountStudio(doc) {
   if (isWebPage(currentFile)) webPagePath = currentFile.path;
   drawerPath.textContent = currentFile.external?.display_path ?? currentFile.path;
   drawerBadge.textContent = currentFile.ext.toUpperCase();
-  btnDelete.hidden = Boolean(currentFile.external);
   configureStudio();
   const isWeb = WEB_EXTENSIONS.has(currentFile.ext);
   const extensionEditor = BlackHoleTools.language(currentFile.ext);
@@ -1794,6 +1796,32 @@ document.getElementById("close-sidebar").onclick = () => {
   updateWorkspaceVisibility();
 };
 arduinoConsoleToggle.onclick = () => setArduinoConsoleOpen(!arduinoConsoleOpen);
+document.getElementById("arduino-open-build").onclick = () => arduinoSerial.setPanel("build");
+document.getElementById("arduino-open-serial").onclick = () => arduinoSerial.setPanel("serial");
+document.getElementById("arduino-save-code").onclick = () => saveCurrentFile(false);
+document.getElementById("arduino-delete-code").onclick = deleteCurrentFile;
+const arduinoMenus = [arduinoMore, document.getElementById("schematic-add")];
+for (const menu of arduinoMenus) {
+  menu.addEventListener("toggle", () => {
+    if (menu.open) arduinoMenus.filter(other => other !== menu).forEach(other => { other.open = false; });
+  });
+  menu.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || !menu.open) return;
+    event.preventDefault();
+    menu.open = false;
+    menu.querySelector("summary").focus();
+  });
+}
+arduinoMore.addEventListener("click", event => {
+  if (!event.target.closest("button")) return;
+  arduinoMore.open = false;
+  if (document.activeElement === document.body) arduinoMore.querySelector("summary").focus();
+});
+document.addEventListener("click", event => {
+  for (const menu of arduinoMenus) {
+    if (!menu.contains(event.target)) menu.open = false;
+  }
+});
 btnCloseDrawer.onclick = () => {
   if (workspaceView === "files") closeFileTab(currentFile?.path);
   else closeDrawer();

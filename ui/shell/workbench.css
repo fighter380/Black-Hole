@@ -143,23 +143,59 @@ body.has-sidebar { --lab-left: calc(var(--lab-rail) + var(--lab-side)); }
 .lab-arduino-tools[hidden], .lab-arduino-tabs[hidden], .lab-serial-port-picker[hidden] { display: none; }
 .lab-arduino-tabs { flex: 0 0 auto; flex-wrap: wrap; padding: 7px 8px; background: var(--lab-bar); border-bottom: 1px solid var(--lab-border); }
 .lab-arduino-tabs button:not(:last-child) { flex: 1; }
-.lab-arduino-tabs [aria-expanded="true"]:first-child, .lab-arduino-tabs [aria-pressed="true"] { background: #373344; border-color: #615776; }
+.lab-arduino-tabs [aria-pressed="true"] { background: #373344; border-color: #615776; }
+.lab-drawer.is-arduino .lab-drawer-header { position: relative; z-index: 8; flex-wrap: wrap; padding: 7px 10px; gap: 6px; }
+.lab-drawer.is-arduino .lab-drawer-actions { margin-left: auto; justify-content: end; gap: 5px; }
+.lab-drawer.is-arduino .lab-file-meta { flex: 1 1 60px; }
+.lab-drawer.is-arduino .lab-badge { display: none; }
+.lab-drawer.is-arduino #btn-run { background: var(--lab-surface); border-color: var(--lab-border); }
+.lab-drawer.is-arduino #btn-run:hover { background: #363841; border-color: #626470; }
+.lab-serial-port-picker { padding-left: 7px; gap: 3px; background: var(--lab-surface); border: 1px solid var(--lab-border); border-radius: 7px; }
+.lab-serial-port-picker label { font-size: 12px; white-space: nowrap; }
+.lab-serial-port-picker select { border: 0; background: transparent; padding-left: 2px; max-width: clamp(92px, 16vw, 150px); }
+.lab-arduino-menu[hidden], .lab-arduino-menu [hidden], #schematic-inspector[hidden], #schematic-inspector [hidden] { display: none; }
+.lab-arduino-menu summary { display: flex; align-items: center; list-style: none; }
+.lab-arduino-menu summary::-webkit-details-marker { display: none; }
+#arduino-more.has-schematic-changes > summary { position: relative; }
+#arduino-more.has-schematic-changes > summary::after { content: ""; width: 5px; height: 5px; border-radius: 50%; background: #b49beb; position: absolute; right: 3px; top: 3px; }
+.lab-arduino-popup {
+  position: absolute; top: calc(100% + 4px); right: 10px; z-index: 9;
+  width: min(300px, calc(100% - 20px)); max-height: min(550px, 67vh);
+  overflow: auto; overscroll-behavior: contain;
+  border: 1px solid #4a4a55; border-radius: 8px; background: #222329; box-shadow: 0 10px 28px #0008;
+}
+.lab-arduino-commands { width: min(216px, calc(100% - 20px)); padding: 4px; display: grid; gap: 2px; }
+.lab-arduino-commands button { text-align: left; background: transparent; border-color: transparent; white-space: normal; }
+.lab-parts-popup h2 { font-size: 13px; margin: 0; padding: 11px 12px; border-bottom: 1px solid var(--lab-border); }
+.lab-parts-popup input { margin: 8px 10px 0; width: calc(100% - 20px); }
+.lab-parts-popup section { padding: 9px 8px; border-bottom: 1px solid var(--lab-border); }
+.lab-parts-popup section:last-child { border-bottom: 0; }
+.lab-parts-popup h3 { margin: 0 0 5px 4px; font-size: 10px; font-weight: 600; letter-spacing: .04em; color: #c4c2ce; text-transform: uppercase; }
+#schematic-no-results { padding: 0 12px; color: #c4c2ce; }
 .lab-arduino-tools .lab-schematic { flex: 1; border: 0; background: #1c1d22; }
-.lab-schematic-header h2 { font-size: 13px; }
-.lab-schematic-toolbar, .lab-component-picker { background: #25262d; border-bottom: 1px solid var(--lab-border); }
-.lab-component-picker { flex-shrink: 0; padding: 6px 9px; font-size: 12px; }
-.lab-component-picker summary { color: #dad7e4; cursor: pointer; }
-.lab-component-picker select { margin-top: 5px; max-width: 100%; }
-.lab-canvas-tools { display: flex; align-items: center; gap: 5px; flex-shrink: 0; padding: 5px 8px; }
+.lab-schematic-footer { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; background: #212227; border-top: 1px solid var(--lab-border); }
+.lab-schematic-status { flex: 1; min-width: 0; padding: 5px 8px; }
+.lab-canvas-tools { display: flex; align-items: center; gap: 3px; flex-shrink: 0; padding: 3px 5px; }
 .lab-canvas-tools .lab-btn { min-height: 26px; padding: 3px 7px; }
-.lab-canvas-tools output { min-width: 48px; text-align: center; font-size: 12px; color: #c1beca; }
-.lab-components { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
-.lab-components .lab-btn { min-height: 26px; padding: 3px 6px; }
+.lab-canvas-tools output { min-width: 38px; text-align: center; font-size: 11px; color: #c1beca; }
+.lab-components { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; }
+.lab-components .lab-btn {
+  display: grid; align-content: center; justify-items: center; gap: 5px;
+  min-height: 58px; padding: 4px 3px; white-space: normal; overflow-wrap: anywhere;
+  text-align: center; font-size: 11px; line-height: 1.2; background: transparent; border-color: transparent;
+}
+.lab-components .lab-btn:hover { background: #373841; border-color: #4a4a58; }
+.lab-components svg { width: 29px; height: 25px; fill: none; stroke: #e2dff0; stroke-width: 4; }
 .lab-components .lab-btn[aria-pressed="true"] { background: #4a3b6a; border-color: #9d8ac4; }
 .lab-components .lab-btn[hidden] { display: none; }
-.lab-schematic-sheet { min-height: 130px; padding: 0; background: #181a20; }
+.lab-schematic-sheet { min-height: 130px; padding: 0; background: #181a20; position: relative; }
+#schematic-inspector {
+  position: absolute; left: 7px; top: 7px; right: 7px; width: fit-content; max-width: calc(100% - 14px);
+  padding: 6px; background: #282830; border: 1px solid var(--lab-border); border-radius: 7px;
+}
+#schematic-inspector input { max-width: min(160px, 100%); }
 #schematic-canvas {
-  min-width: 270px; border: 0; border-radius: 0;
+  min-width: 0; border: 0; border-radius: 0;
   background: #1a1b20;
 }
 #schematic-grid { cursor: grab; }
@@ -167,10 +203,12 @@ body.has-sidebar { --lab-left: calc(var(--lab-rail) + var(--lab-side)); }
 #schematic-canvas.is-placing, #schematic-canvas.is-placing * { cursor: crosshair; }
 .lab-arduino-tools .lab-console { flex-shrink: 0; height: clamp(150px, 25vh, 245px); }
 .lab-arduino-tools:has(.lab-schematic[hidden]) .lab-console { flex: 1; height: auto; min-height: 0; }
-@container (max-width: 740px) {
+@container (max-width: 640px) {
   .lab-drawer.is-arduino .lab-workspace { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(112px, 1fr) minmax(245px, 1.4fr); overflow: auto; }
   .lab-arduino-tools { grid-area: 2 / 1; border-left: 0; border-top: 1px solid var(--lab-border); }
 }
+.lab-drawer.is-arduino .lab-workspace:has(.lab-schematic[hidden]):has(.lab-console[hidden]) { grid-template: minmax(0, 1fr) / minmax(0, 1fr); }
+.lab-drawer.is-arduino .lab-arduino-tools:has(> .lab-schematic[hidden]):has(> .lab-console[hidden]) { display: none; }
 @media (max-width: 780px) { body { --lab-side: 210px; } }
 @media (max-width: 760px) {
   body { --lab-content-top: 91px; }

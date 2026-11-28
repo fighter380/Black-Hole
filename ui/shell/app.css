@@ -748,21 +748,7 @@ html, body {
   color: #f3eaff;
 }
 .lab-schematic[hidden] { display: none; }
-.lab-schematic-header, .lab-schematic-toolbar, .lab-schematic-status {
-  flex-shrink: 0;
-  padding: 7px 10px;
-}
-.lab-schematic-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 7px;
-  border-bottom: 1px solid #352a42;
-}
-.lab-schematic-header h2 { margin: 0 0 4px; font-size: 18px; }
-#schematic-project { color: #c6afdc; font: 12px var(--font-monospace); overflow-wrap: anywhere; }
-.lab-schematic-actions, .lab-schematic-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.lab-schematic-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
 .lab-schematic-toolbar { background: #1d1528; font-size: 12px; }
 .lab-schematic-toolbar label { color: #c6afdc; }
 #schematic-label { max-width: 180px; }
@@ -785,7 +771,7 @@ html, body {
     #111520;
   touch-action: none;
 }
-.lab-schematic-status { min-height: 34px; color: #c3b1d6; font-size: 12px; }
+.lab-schematic-status { color: #c3b1d6; font-size: 12px; }
 .lab-schematic-status { white-space: pre-wrap; overflow: auto; max-height: 100px; }
 .lab-schematic-diagnostics {
   flex-shrink: 0;
