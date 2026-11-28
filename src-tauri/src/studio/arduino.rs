@@ -62,7 +62,7 @@ pub struct CompileResult {
     firmware: Option<String>,
 }
 
-fn find_cli(cli_path: Option<String>) -> PathBuf {
+pub(super) fn find_cli(cli_path: Option<String>) -> PathBuf {
     if let Some(path) = cli_path
         .map(|path| path.trim().to_owned())
         .filter(|path| !path.is_empty())
@@ -83,6 +83,14 @@ fn find_cli(cli_path: Option<String>) -> PathBuf {
         return path;
     }
     if cfg!(windows) {
+        if let Some(local) = env::var_os("LOCALAPPDATA") {
+            let path = PathBuf::from(local)
+                .join("Microsoft/WinGet/Links")
+                .join(name);
+            if path.is_file() {
+                return path;
+            }
+        }
         for (root, install) in [
             ("ProgramFiles", "Arduino IDE"),
             ("LOCALAPPDATA", "Programs/Arduino IDE"),

@@ -92,11 +92,7 @@ pub async fn run_python(
             temporary = TemporaryScript::create(&code)?;
             temporary.0.clone()
         };
-        let default_python = if cfg!(windows) { "python" } else { "python3" };
-        let executable = python_bin
-            .as_deref()
-            .filter(|name| !name.trim().is_empty())
-            .unwrap_or(default_python);
+        let executable = python_executable(python_bin.as_deref());
 
         let (stdout, stderr) = {
             let mut running = process.lock().map_err(|e| e.to_string())?;
@@ -158,6 +154,13 @@ pub async fn run_python(
     })
     .await
     .map_err(|e| e.to_string())?
+}
+
+pub(super) fn python_executable(override_path: Option<&str>) -> &str {
+    override_path
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .unwrap_or(if cfg!(windows) { "python" } else { "python3" })
 }
 
 #[tauri::command]

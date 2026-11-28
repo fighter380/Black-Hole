@@ -773,6 +773,8 @@ async function refreshWebPreview(request) {
 function configureStudio() {
   const isWeb = WEB_EXTENSIONS.has(currentFile.ext);
   const isArduino = ARDUINO_EXTENSIONS.has(currentFile.ext);
+  const extensionEditor = BlackHoleTools.language(currentFile.ext);
+  const isPython = currentFile.ext === "py" || currentFile.ext === "md";
   drawer.classList.toggle("is-web", isWeb);
   drawer.classList.toggle("is-arduino", isArduino);
   webTabs.hidden = !isWeb;
@@ -782,19 +784,20 @@ function configureStudio() {
   btnArduinoUpload.hidden = !isArduino;
   arduinoTools.hidden = !isArduino;
   if (ArduinoSchematic.isOpen && !ArduinoSchematic.matches(currentArduinoTarget())) ArduinoSchematic.hide();
-  editorHost.hidden = isWeb || isArduino;
-  codeMirrorEditorHost.hidden = !isWeb && !isArduino;
+  editorHost.hidden = isWeb || isArduino || Boolean(extensionEditor);
+  codeMirrorEditorHost.hidden = !isWeb && !isArduino && !extensionEditor;
   if (isArduino) {
     arduinoTools.append(studioConsole);
     setArduinoConsoleOpen(arduinoConsoleOpen);
   } else {
     arduinoTools.after(studioConsole);
-    studioConsole.hidden = isWeb;
+    studioConsole.hidden = !isPython;
   }
   consoleTitle.textContent = isArduino ? "Compilation · Arduino Uno" : "Sortie Python";
   btnRun.textContent = isWeb ? "↻ Aperçu" : isArduino ? "✓ Compiler" : "▶ Exécuter";
   btnRun.title = isWeb ? "Actualiser l’aperçu (Ctrl+Entrée)" :
     isArduino ? "Compiler pour Arduino Uno (Ctrl+Entrée)" : "Exécuter Python (Ctrl+Entrée)";
+  btnRun.hidden = !isWeb && !isArduino && !isPython;
   arduinoSerial.show(isArduino);
   clearTimeout(savedLabelTimer);
   btnSave.textContent = "Sauver";
@@ -947,10 +950,11 @@ function mountStudio(doc) {
   drawerBadge.textContent = currentFile.ext.toUpperCase();
   configureStudio();
   const isWeb = WEB_EXTENSIONS.has(currentFile.ext);
-  if (isWeb || ARDUINO_EXTENSIONS.has(currentFile.ext)) {
+  const extensionEditor = BlackHoleTools.language(currentFile.ext);
+  if (isWeb || extensionEditor || ARDUINO_EXTENSIONS.has(currentFile.ext)) {
     codeMirrorEditor = StudioEditor.createCodeEditor({
       parent: codeMirrorEditorHost,
-      language: isWeb ? currentFile.ext : "cpp",
+      language: isWeb ? currentFile.ext : extensionEditor || "cpp",
       content: doc.text,
       position: doc.position,
       onChange: isWeb ? updateWebDraft : trackEditorContent,
@@ -1110,7 +1114,7 @@ async function runCurrentCode() {
     await compileArduino(doc);
     return;
   }
-  if (pythonRunning) return;
+  if (pythonRunning || !["py", "md"].includes(currentFile.ext)) return;
   const codeToRun = extractRunnablePython(editor.value, currentFile.ext);
   if (!codeToRun.trim()) return;
 
@@ -1127,6 +1131,7 @@ async function runCurrentCode() {
   const output = new Channel();
   const decoders = { stdout: new TextDecoder(), stderr: new TextDecoder() };
   let text = "";
+  let stderrTail = "";
   let hasError = false;
   let trimmed = false;
   let repaint;
@@ -1141,7 +1146,9 @@ async function runCurrentCode() {
   const displayedOutput = () => trimmed ? "… début de la sortie tronqué …\n" + text : text;
   output.onmessage = ({ stream, bytes }) => {
     hasError ||= stream === "stderr";
-    append(decoders[stream].decode(Uint8Array.from(bytes), { stream: true }));
+    const chunk = decoders[stream].decode(Uint8Array.from(bytes), { stream: true });
+    if (stream === "stderr") stderrTail = (stderrTail + chunk).slice(-24_000);
+    append(chunk);
     if (repaint === undefined) {
       repaint = requestAnimationFrame(() => {
         repaint = undefined;
@@ -1162,6 +1169,7 @@ async function runCurrentCode() {
     const status = res.stopped ? "Arrêté" : `Code ${res.exit_code} · ${res.duration_ms} ms`;
     setDocumentConsole(doc, displayedOutput() || "(Aucune sortie texte)", status,
       hasError || (!res.stopped && res.exit_code !== 0));
+    if (!res.stopped && res.exit_code !== 0) BlackHoleTools.reportPythonError(stderrTail);
   } catch (err) {
     append((text ? "\n" : "") + String(err));
     setDocumentConsole(doc, displayedOutput(), "Erreur", true);
@@ -1771,8 +1779,13 @@ document.addEventListener("click", (e) => {
   if (!e.target.closest(".lab-search-wrap")) searchResults.hidden = true;
 });
 
+document.addEventListener("black-hole-language-change", () => {
+  const doc = activeDocument();
+  if (doc && !drawer.hidden) mountStudio(doc);
+});
+
 window.addEventListener("keydown", (e) => {
-  if (e.defaultPrevented || !document.getElementById("lab-modal").hidden || colorDialog.open || newMenu.open
+  if (e.defaultPrevented || !document.getElementById("lab-modal").hidden || colorDialog.open || newMenu.open || BlackHoleTools.isOpen
       || document.getElementById("updates-dialog").open) return;
   if (e.key === "F2" && !drawer.hidden) {
     e.preventDefault();

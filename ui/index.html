@@ -15,6 +15,9 @@
     <button id="view-graph" class="lab-rail-button" type="button" aria-label="Graphe" title="Graphe" aria-pressed="true"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><path d="m11 7-5 9m7-9 5 9M8 18h8"/></svg></button>
     <button id="view-files" class="lab-rail-button" type="button" aria-label="Fichiers" title="Fichiers" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h5l2 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M3 10h18"/></svg></button>
     <button id="view-git" class="lab-rail-button" type="button" aria-label="Git" title="Git" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="4.5" r="2.5"/><circle cx="6" cy="19" r="2.5"/><circle cx="18" cy="6" r="2.5"/><path d="M6 7v9.5m0-3c7 0 12-1 12-5"/></svg><span id="git-rail-count" hidden></span></button>
+    <button id="open-tools" class="lab-rail-button" type="button" aria-label="Outils et installations" title="Outils et installations">
+      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6 4 4 3-3a5 5 0 0 1-6 6l-8 8-3-3 8-8a5 5 0 0 1 6-6z"/></svg>
+    </button>
     <button id="app-version" class="lab-rail-button lab-version" type="button" aria-label="Mises à jour" title="Mises à jour et nouveautés">
       <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="m10 3-.7 2.6-2 .9-2.5-1.1-2 3.4 2 1.6v2.3l-2 1.6 2 3.4 2.5-1.1 2 .9L10 21h4l.7-2.6 2-.9 2.5 1.1 2-3.4-2-1.6v-2.3l2-1.6-2-3.4-2.5 1.1-2-.9L14 3z"/><circle cx="12" cy="12" r="3"/></svg><span id="app-version-value">…</span><span id="app-version-indicator" aria-hidden="true"></span>
     </button>
@@ -138,8 +141,19 @@
             <button id="schematic-close" type="button" class="lab-btn">Masquer</button>
           </div>
         </header>
+        <div class="lab-canvas-tools" aria-label="Navigation dans le schéma">
+          <button id="schematic-zoom-out" class="lab-btn" type="button" aria-label="Zoom arrière">−</button>
+          <output id="schematic-zoom" aria-label="Zoom du schéma">100 %</output>
+          <button id="schematic-zoom-in" class="lab-btn" type="button" aria-label="Zoom avant">＋</button>
+          <button id="schematic-fit" class="lab-btn" type="button">Tout cadrer</button>
+        </div>
         <details class="lab-component-picker" open>
           <summary>Composants</summary>
+          <select id="schematic-category" class="lab-control" aria-label="Catégorie de composants">
+            <option value="all">Toutes les catégories</option><option value="boards">Cartes</option>
+            <option value="motors">Moteurs et commande</option><option value="display">Affichage et RGB</option>
+            <option value="basics">Composants de base</option>
+          </select>
           <div id="schematic-components" class="lab-components"></div>
         </details>
         <div class="lab-schematic-toolbar">
@@ -149,7 +163,13 @@
           <input id="schematic-label" class="lab-control" type="text" maxlength="40" />
         </div>
         <div class="lab-schematic-sheet">
-          <svg id="schematic-canvas" viewBox="0 0 1000 580" tabindex="0" aria-label="Zone de schéma électrique"></svg>
+          <svg id="schematic-canvas" viewBox="0 0 1000 580" tabindex="0" aria-label="Schéma électrique. Molette pour zoomer, glisser sur le fond pour déplacer la vue.">
+            <defs><pattern id="schematic-grid-pattern" width="25" height="25" patternUnits="userSpaceOnUse">
+              <path d="M 25 0 H 0 V 25" fill="none" stroke="#343740" stroke-width="1"/>
+            </pattern></defs>
+            <rect id="schematic-grid" x="0" y="0" width="1000" height="580" fill="url(#schematic-grid-pattern)"/>
+            <g id="schematic-drawing"></g>
+          </svg>
         </div>
         <footer id="schematic-status" class="lab-schematic-status" role="status"></footer>
         <ul id="schematic-diagnostics" class="lab-schematic-diagnostics" aria-label="Vérification du câblage" hidden></ul>
@@ -204,6 +224,47 @@
     </div>
     <footer><button id="btn-vault" class="lab-btn" type="button">Ouvrir un dossier externe… <kbd>Ctrl+O</kbd></button></footer>
   </dialog>
+
+  <dialog id="tools-dialog" class="lab-new-dialog lab-tools-dialog" aria-labelledby="tools-title">
+    <header><h2 id="tools-title">Outils et installations</h2><button id="close-tools" class="lab-btn" type="button">Fermer</button></header>
+    <nav class="lab-tools-nav" aria-label="Catégories d’outils">
+      <button class="lab-btn" type="button" data-tool-tab="runtimes" aria-pressed="true">Installations</button>
+      <button class="lab-btn" type="button" data-tool-tab="languages" aria-pressed="false">Langages</button>
+      <button class="lab-btn" type="button" data-tool-tab="python" aria-pressed="false">Paquets Python</button>
+    </nav>
+    <section data-tool-section="runtimes">
+      <div class="lab-tool-row"><div><strong>Arduino CLI</strong><small data-tool-version="arduino_cli"></small></div><button class="lab-btn" type="button" data-tool-install="arduino_cli">Installer</button></div>
+      <div class="lab-tool-row"><div><strong>Cœur Arduino AVR Boards</strong><small data-tool-version="arduino_avr"></small></div><button class="lab-btn" type="button" data-tool-install="arduino_avr">Installer</button></div>
+      <div class="lab-tool-row"><div><strong>Python</strong><small data-tool-version="python"></small></div><button class="lab-btn" type="button" data-tool-install="python">Installer</button></div>
+      <div class="lab-tool-row"><div><strong>Node.js LTS</strong><small data-tool-version="node"></small></div><button class="lab-btn" type="button" data-tool-install="node">Installer</button></div>
+      <div class="lab-tool-row"><div><strong>Rustup</strong><small data-tool-version="rust"></small></div><button class="lab-btn" type="button" data-tool-install="rust">Installer</button></div>
+      <p id="tools-winget"></p>
+      <button class="lab-btn" id="tools-refresh" type="button">Revérifier les outils</button>
+    </section>
+    <section data-tool-section="languages" hidden>
+      <p>Extensions de coloration disponibles hors ligne.</p>
+      <div class="lab-tool-row"><strong>TypeScript · .ts</strong><button class="lab-btn" type="button" data-language="ts" aria-pressed="false">Activer</button></div>
+      <div class="lab-tool-row"><strong>JSON · .json</strong><button class="lab-btn" type="button" data-language="json" aria-pressed="false">Activer</button></div>
+      <div class="lab-tool-row"><strong>Rust · .rs</strong><button class="lab-btn" type="button" data-language="rs" aria-pressed="false">Activer</button></div>
+    </section>
+    <section data-tool-section="python" hidden>
+      <label for="tools-python-bin">Interpréteur Python</label>
+      <input id="tools-python-bin" class="lab-control" placeholder="Automatique ou chemin complet vers python.exe" />
+      <button class="lab-btn" id="tools-python-save" type="button">Appliquer</button>
+      <p data-tool-version="pip"></p>
+      <p id="tools-python-hint" hidden></p>
+      <form id="tools-pip-form">
+        <label for="tools-pip-name">Nom du paquet PyPI</label>
+        <div><input id="tools-pip-name" class="lab-control" placeholder="requests" required /><button id="tools-pip-install" class="lab-btn lab-btn-run" type="submit">Installer</button></div>
+      </form>
+    </section>
+    <footer><p id="tools-status" role="status"></p><pre id="tools-log" hidden></pre></footer>
+  </dialog>
+  <aside id="python-package-notice" class="lab-tools-toast" aria-label="Dépendance Python" hidden>
+    <p id="python-package-message" role="status"></p>
+    <button id="python-package-open" class="lab-btn lab-btn-run" type="button">Ouvrir les paquets</button>
+    <button id="python-package-dismiss" class="lab-btn" type="button" aria-label="Fermer la notification">×</button>
+  </aside>
 
   <div id="lab-modal" class="lab-modal" hidden>
     <div class="lab-modal-card">
@@ -268,7 +329,9 @@
   <script src="editor/web-editor.js"></script>
   <script src="arduino/arduino-serial.js"></script>
   <script src="arduino/arduino-circuit.js"></script>
+  <script src="arduino/arduino-components.js"></script>
   <script src="arduino/arduino-schematic.js"></script>
+  <script src="studio/tools.js"></script>
   <script src="shell/app.js"></script>
   <script src="release/updates.js"></script>
 </body>

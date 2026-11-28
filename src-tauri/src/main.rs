@@ -7,7 +7,7 @@ mod studio;
 mod updates;
 mod workspace;
 
-use studio::{arduino, python, serial};
+use studio::{arduino, python, serial, tools};
 use workspace::{source_control, vault};
 
 fn command_without_console(program: impl AsRef<OsStr>) -> Command {
@@ -52,6 +52,9 @@ fn main() {
             vault::set_graph_link,
             vault::rename_file,
             python::run_python,
+            tools::inspect_tools,
+            tools::install_tool,
+            tools::install_python_package,
             python::stop_python,
             arduino::create_arduino_project,
             arduino::compile_arduino,

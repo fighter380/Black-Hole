@@ -14,6 +14,9 @@
   const rotate = el("schematic-rotate");
   const remove = el("schematic-remove");
   const componentPicker = el("schematic-components");
+  const categoryPicker = el("schematic-category");
+  const grid = el("schematic-grid");
+  const drawing = el("schematic-drawing");
   const width = 1000;
   const height = 580;
 
@@ -60,6 +63,7 @@
       symbol: '<path d="M 0 -23 V 3 M -16 3 H 16 M -11 9 H 11 M -6 15 H 6"/>',
       pins: [pin("GND", 0, -26)],
     },
+    ...window.extraArduinoComponents,
   };
 
   const ns = "http://www.w3.org/2000/svg";
@@ -76,6 +80,9 @@
   let placementKind = null;
   let pinStart = null;
   let drag = null;
+  let pan = null;
+  let spaceHeld = false;
+  let camera = { x: 0, y: 0, width };
   let suppressCanvasClick = false;
   let dirty = false;
   let saving = false;
@@ -180,10 +187,7 @@
 
   function placeComponent({ x, y }) {
     const kind = placementKind;
-    const [w, h] = types[kind].size;
-    const snap = (value, size, limit) => Math.min(limit - size / 2 - 18,
-      Math.max(size / 2 + 18, Math.round(value / 5) * 5));
-    const part = makePart(kind, snap(x, w, width), snap(y, h, height));
+    const part = makePart(kind, snap(x), snap(y));
     selectComponent(null);
     model.parts.push(part);
     selected = { type: "part", id: part.id };
@@ -195,6 +199,7 @@
     button.type = "button";
     button.className = "lab-btn";
     button.dataset.kind = kind;
+    button.dataset.category = type.category ?? (kind === "uno" ? "boards" : "basics");
     button.textContent = type.title;
     button.setAttribute("aria-pressed", "false");
     button.onclick = () => {
@@ -206,6 +211,15 @@
     };
     componentPicker.append(button);
   }
+  categoryPicker.onchange = () => {
+    for (const button of componentPicker.children) {
+      button.hidden = categoryPicker.value !== "all" && button.dataset.category !== categoryPicker.value;
+    }
+    if (placementKind && ![...componentPicker.children].some(button => !button.hidden && button.dataset.kind === placementKind)) {
+      selectComponent(null);
+      message("Placement annulé.");
+    }
+  };
 
   function updateLights() {
     for (const marker of canvas.querySelectorAll("[data-sim-light]")) {
@@ -237,7 +251,8 @@
 
   el("schematic-verify").onclick = () => {
     const result = verifyCircuit();
-    if (result.errors.length) message("Le câblage des LED comporte des erreurs.");
+    if (result.fatal) message("La vérification du câblage est indisponible pour ce schéma.");
+    else if (result.errors.length) message("Le câblage des LED comporte des erreurs.");
     else if (result.leds.length) message("Aucune erreur détectée dans le câblage des LED.");
     else message("Aucune LED externe à vérifier. Tu peux tester la LED intégrée de l’Uno.");
   };
@@ -347,7 +362,7 @@
       group.append(name);
       content.append(group);
     }
-    canvas.replaceChildren(content);
+    drawing.replaceChildren(content);
     updateLights();
   }
 
@@ -398,8 +413,61 @@
     return new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
   }
 
+  function snap(value) {
+    return Math.max(-200_000, Math.min(200_000, Math.round(value / 5) * 5));
+  }
+
+  const cameraHeight = () => camera.width * height / width;
+  const cameraCenter = () => ({ x: camera.x + camera.width / 2, y: camera.y + cameraHeight() / 2 });
+  function paintCamera() {
+    const h = cameraHeight();
+    canvas.setAttribute("viewBox", `${camera.x} ${camera.y} ${camera.width} ${h}`);
+    for (const [name, value] of Object.entries({ x: camera.x, y: camera.y, width: camera.width, height: h })) {
+      grid.setAttribute(name, value);
+    }
+    el("schematic-zoom").value = `${Math.round(100 * width / camera.width)} %`;
+  }
+
+  function zoom(factor, anchor = cameraCenter()) {
+    const next = Math.max(220, Math.min(450_000, camera.width * factor));
+    const scale = next / camera.width;
+    camera = { x: anchor.x + (camera.x - anchor.x) * scale,
+      y: anchor.y + (camera.y - anchor.y) * scale, width: next };
+    paintCamera();
+  }
+
+  function fitDiagram() {
+    if (!model.parts.length) {
+      camera = { x: 0, y: 0, width };
+    } else {
+      const boxes = model.parts.map(partBounds);
+      const left = Math.min(...boxes.map(box => box.left));
+      const right = Math.max(...boxes.map(box => box.right));
+      const top = Math.min(...boxes.map(box => box.top));
+      const bottom = Math.max(...boxes.map(box => box.bottom));
+      const w = Math.max(360, right - left + 125, (bottom - top + 105) * width / height);
+      camera = { x: (left + right - w) / 2, y: (top + bottom - w * height / width) / 2, width: w };
+    }
+    paintCamera();
+  }
+  el("schematic-zoom-in").onclick = () => zoom(0.8);
+  el("schematic-zoom-out").onclick = () => zoom(1.25);
+  el("schematic-fit").onclick = fitDiagram;
+  canvas.addEventListener("wheel", event => {
+    event.preventDefault();
+    zoom(event.deltaY < 0 ? 0.88 : 1.14, point(event));
+  }, { passive: false });
+
   canvas.addEventListener("pointerdown", event => {
     suppressCanvasClick = false;
+    if (event.button === 1 || (event.button === 0 && (spaceHeld || (!placementKind && (event.target === grid || event.target === canvas))))) {
+      const matrix = canvas.getScreenCTM();
+      pan = { id: event.pointerId, clientX: event.clientX, clientY: event.clientY, camera: { ...camera }, sx: matrix.a, sy: matrix.d };
+      canvas.classList.add("is-panning");
+      canvas.setPointerCapture(event.pointerId);
+      if (event.button === 1) event.preventDefault();
+      return;
+    }
     if (placementKind || event.button !== 0 || event.target.closest("[data-pin]")) return;
     const element = event.target.closest("[data-part]");
     if (!element) return;
@@ -413,14 +481,28 @@
   });
 
   canvas.addEventListener("pointermove", event => {
+    if (pan?.id === event.pointerId) {
+      const dx = event.clientX - pan.clientX;
+      const dy = event.clientY - pan.clientY;
+      if (!suppressCanvasClick && Math.hypot(dx, dy) < 4) return;
+      suppressCanvasClick = true;
+      camera.x = pan.camera.x - dx / pan.sx;
+      camera.y = pan.camera.y - dy / pan.sy;
+      paintCamera();
+      return;
+    }
     if (!drag || drag.id !== event.pointerId) return;
     const cursor = point(event);
-    const margin = drag.part.kind === "uno" ? 155 : 64;
-    drag.part.x = Math.min(width - margin, Math.max(margin, Math.round((cursor.x + drag.dx) / 5) * 5));
-    drag.part.y = Math.min(height - margin, Math.max(margin, Math.round((cursor.y + drag.dy) / 5) * 5));
+    drag.part.x = snap(cursor.x + drag.dx);
+    drag.part.y = snap(cursor.y + drag.dy);
     renderCanvas();
   });
   function finishDrag(event) {
+    if (pan?.id === event.pointerId) {
+      pan = null;
+      canvas.classList.remove("is-panning");
+      return;
+    }
     if (!drag || drag.id !== event.pointerId) return;
     if (drag.part.x !== drag.x || drag.part.y !== drag.y) changed("Composant déplacé.");
     drag = null;
@@ -442,31 +524,37 @@
     const part = target.closest("[data-part]");
     if (part) {
       select("part", part.dataset.part);
-    } else if (target === canvas) {
+    } else if (target === canvas || target === grid) {
       pinStart = null;
       select(null, null);
       message("Choisis une broche pour commencer un fil.");
     }
   }
   canvas.addEventListener("click", event => {
+    if (suppressCanvasClick) return;
     if (placementKind) {
       placeComponent(point(event));
       return;
     }
-    // A pointer drag ends with a click on the canvas itself.
-    if (event.target === canvas && suppressCanvasClick) return;
     activate(event.target);
   });
   canvas.addEventListener("keydown", event => {
+    if (event.key === " " && event.target === canvas && !placementKind) {
+      event.preventDefault();
+      spaceHeld = true;
+      return;
+    }
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       if (placementKind) {
-        placeComponent({ x: width / 2, y: height / 2 });
+        placeComponent(cameraCenter());
         return;
       }
       activate(event.target);
     }
   });
+  canvas.addEventListener("keyup", event => { if (event.key === " ") spaceHeld = false; });
+  canvas.addEventListener("blur", () => { spaceHeld = false; });
 
   function removeSelected() {
     if (!selected) return;
@@ -610,6 +698,11 @@
         const saved = await invoke("read_arduino_schematic", target);
         if (!stillActive()) return;
         model = readModel(saved);
+        if (saved) fitDiagram();
+        else {
+          camera = { x: 0, y: 0, width };
+          paintCamera();
+        }
         project = target;
         compileFirmware = loadFirmware;
         diagnostics.hidden = true;

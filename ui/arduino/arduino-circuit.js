@@ -7,7 +7,7 @@ window.ArduinoCircuit = {
     const leds = parts.filter(part => part.kind === "led");
     const boards = parts.filter(part => part.kind === "uno");
     if (boards.length !== 1) {
-      return { fatal: true, errors: ["Le schéma doit contenir une seule Arduino Uno."], warnings, leds: [] };
+      return { fatal: true, errors: ["La simulation requiert une seule Arduino Uno R3."], warnings, leds: [] };
     }
     const board = boards[0];
     const key = (part, pin) => JSON.stringify([part, pin]);
@@ -84,8 +84,8 @@ window.ArduinoCircuit = {
       return reached;
     }
 
-    if (parts.some(part => ["button", "capacitor", "pot"].includes(part.kind))) {
-      warnings.push("Les boutons, condensateurs et potentiomètres restent dessinés. Leurs effets électriques ne sont pas simulés.");
+    if (parts.some(part => !["uno", "led", "resistor", "ground"].includes(part.kind))) {
+      warnings.push("La simulation teste les LED simples de l’Uno R3. Les autres composants restent visibles sur le schéma.");
     }
     const supported = [];
     for (const [i, part] of leds.entries()) {

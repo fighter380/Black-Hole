@@ -192,7 +192,7 @@ pub(crate) fn get_default_vault() -> String {
 
 const EDITABLE_EXTENSIONS: &[&str] = &[
     "md", "py", "lua", "sh", "js", "ts", "rs", "txt", "html", "htm", "css", "ino", "cpp", "h",
-    "hpp", "c",
+    "hpp", "c", "json",
 ];
 const GRAPH_LINKS_FILE: &str = ".sbbh-links.json";
 #[derive(Clone, Default, Serialize, serde::Deserialize)]

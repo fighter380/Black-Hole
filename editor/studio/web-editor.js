@@ -7,6 +7,8 @@ import { css } from "@codemirror/lang-css";
 import { cpp } from "@codemirror/lang-cpp";
 import { html } from "@codemirror/lang-html";
 import { javascript, localCompletionSource } from "@codemirror/lang-javascript";
+import { json } from "@codemirror/lang-json";
+import { rust } from "@codemirror/lang-rust";
 import { bracketMatching, foldGutter, foldKeymap, indentOnInput } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { oneDark } from "@codemirror/theme-one-dark";
@@ -105,7 +107,7 @@ function createCodeEditor({ parent, language, content, position, onChange, getPa
   }
 
   const isCpp = language === "cpp";
-  const support = { js: javascript, css, html, htm: html, cpp }[language]();
+  const support = { js: javascript, ts: () => javascript({ typescript: true }), css, html, htm: html, cpp, json, rs: rust }[language]();
   const source = { js: completeJavaScript, cpp: arduinoCompletion(getArduinoHeaders) }[language];
   const completion = autocompletion(source ? { override: [source] } : {});
   const view = new EditorView({
