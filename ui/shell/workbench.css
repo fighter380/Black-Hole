@@ -120,6 +120,9 @@ body.has-sidebar { --lab-left: calc(var(--lab-rail) + var(--lab-side)); }
 }
 .lab-tools-toast[hidden] { display: none; }
 .lab-tools-toast p { margin: 0; flex: 1 1 160px; }
+#first-run-defaults { top: calc(var(--lab-content-top) + 12px); bottom: auto; }
+#first-run-defaults p { margin-top: 5px; color: #c6c4d0; }
+#tools-windows-defaults { margin-left: 4px; }
 
 .lab-git-panel { display: flex; flex-direction: column; padding: 12px 10px; }
 .lab-git-panel[hidden] { display: none; }

@@ -92,6 +92,7 @@ fn main() {
             serial::serial_send,
             serial::serial_disconnect,
             updates::app_release_info,
+            updates::open_windows_defaults,
             updates::check_app_update,
             updates::download_app_update,
             updates::install_app_update

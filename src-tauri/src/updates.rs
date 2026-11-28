@@ -11,6 +11,7 @@ pub struct DownloadedUpdate(Mutex<Option<(Update, Vec<u8>)>>);
 pub struct InstalledRelease {
     version: String,
     notes: Option<&'static str>,
+    windows_defaults_available: bool,
 }
 
 #[derive(Serialize)]
@@ -40,7 +41,51 @@ pub fn app_release_info(app: tauri::AppHandle) -> InstalledRelease {
     InstalledRelease {
         version: app.package_info().version.to_string(),
         notes: (!notes.is_empty()).then_some(notes),
+        windows_defaults_available: cfg!(windows),
     }
+}
+
+#[tauri::command]
+pub fn open_windows_defaults() -> Result<(), String> {
+    #[cfg(windows)]
+    {
+        use std::ffi::c_void;
+        use std::ptr::null;
+
+        #[link(name = "shell32")]
+        extern "system" {
+            fn ShellExecuteW(
+                window: *mut c_void,
+                operation: *const u16,
+                file: *const u16,
+                parameters: *const u16,
+                directory: *const u16,
+                show: i32,
+            ) -> isize;
+        }
+
+        let uri: Vec<u16> = "ms-settings:defaultapps?registeredAppUser=Black%20Hole"
+            .encode_utf16()
+            .chain(std::iter::once(0))
+            .collect();
+        let result = unsafe {
+            ShellExecuteW(
+                std::ptr::null_mut(),
+                null(),
+                uri.as_ptr(),
+                null(),
+                null(),
+                1,
+            )
+        };
+        if result > 32 {
+            Ok(())
+        } else {
+            Err("Impossible d’ouvrir les paramètres Windows.".into())
+        }
+    }
+    #[cfg(not(windows))]
+    Err("Cette option est disponible sous Windows.".into())
 }
 
 #[tauri::command]

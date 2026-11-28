@@ -11,13 +11,12 @@
   const check = el("updates-check");
   const progress = el("updates-progress");
   const seenKey = "sbbh_last_seen_version";
-  const lastCheckKey = "sbbh_update_last_check";
-  const automaticCheckInterval = 15 * 60 * 1000;
   let localVersion;
   let candidate;
   let downloadedVersion;
   let busy = false;
   let installing = false;
+  const startupPanelObserver = new MutationObserver(openStartupPanel);
 
   const versionNotes = new Map([
     ["0.2.16", ["Ouverture des fichiers texte du PC avec aperçu du code, édition et sauvegarde à leur emplacement d’origine."]],
@@ -98,13 +97,23 @@
     badge.setAttribute("aria-label", `Second Brain ${localVersion ?? ""}. ${message}`);
   }
 
-  async function checkUpdates() {
+  function openStartupPanel() {
+    if (!dialog.open && document.querySelector("dialog[open], #lab-modal:not([hidden])")) {
+      for (const modal of document.querySelectorAll("dialog, #lab-modal")) {
+        startupPanelObserver.observe(modal, { attributes: true, attributeFilter: ["open", "hidden"] });
+      }
+      return;
+    }
+    startupPanelObserver.disconnect();
+    if (!dialog.open) dialog.showModal();
+  }
+
+  async function checkUpdates(startup = false) {
     if (busy || !localVersion) return;
     if (!navigator.onLine) {
       showState("error", "Hors ligne. La version installée reste disponible.");
       return;
     }
-    localStorage.setItem(lastCheckKey, Date.now());
     busy = check.disabled = true;
     candidate = null;
     install.hidden = notes.hidden = true;
@@ -114,12 +123,15 @@
       if (result.state === "available") {
         candidate = result.version;
         addReleaseNotes(candidate, result.notes ?? "");
-        notes.replaceChildren(renderChanges(candidate));
-        notes.hidden = !changesFor(candidate);
+        const heading = document.createElement("h3");
+        heading.textContent = `v${candidate} · Nouveautés`;
+        notes.replaceChildren(heading, renderChanges(candidate));
+        notes.hidden = false;
         renderHistory();
         install.hidden = false;
         install.textContent = candidate === downloadedVersion ? "Installer et relancer" : "Installer la mise à jour";
         showState("available", `Version ${candidate} disponible.`);
+        if (startup) openStartupPanel();
       } else if (result.state === "current") {
         showState("current", `Tu es à jour avec la version ${localVersion}.`);
       } else {
@@ -138,7 +150,7 @@
   dialog.addEventListener("close", () => {
     if (localVersion) localStorage.setItem(seenKey, localVersion);
   });
-  check.onclick = checkUpdates;
+  check.onclick = () => checkUpdates();
   function readyToRestart() {
     if (ArduinoSchematic.hasUnsavedChanges) {
       showState("available", "Enregistre ton schéma Arduino avant l’installation.");
@@ -184,7 +196,7 @@
     }
   };
 
-  invoke("app_release_info").then(({ version, notes: installedNotes }) => {
+  invoke("app_release_info").then(async ({ version, notes: installedNotes, windows_defaults_available }) => {
     localVersion = version;
     el("app-version-value").textContent = `v${version}`;
     addReleaseNotes(version, installedNotes ?? "");
@@ -193,8 +205,8 @@
     el("updates-installed").hidden = false;
     renderHistory();
     showState("unknown", `Version ${version} installée.`);
-    if (localStorage.getItem(seenKey) !== version && !dialog.open
-        && !document.querySelector('dialog[open], #lab-modal:not([hidden])')) dialog.showModal();
-    if (!navigator.onLine || Date.now() - Number(localStorage.getItem(lastCheckKey)) >= automaticCheckInterval) checkUpdates();
+    BlackHoleDefaults.init(windows_defaults_available);
+    await checkUpdates(true);
+    if (localStorage.getItem(seenKey) !== version) openStartupPanel();
   }).catch(() => showState("error", "Impossible de lire la version installée."));
 })();

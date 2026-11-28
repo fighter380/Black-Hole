@@ -247,6 +247,7 @@
       <div class="lab-tool-row"><div><strong>Rustup</strong><small data-tool-version="rust"></small></div><button class="lab-btn" type="button" data-tool-install="rust">Installer</button></div>
       <p id="tools-winget"></p>
       <button class="lab-btn" id="tools-refresh" type="button">Revérifier les outils</button>
+      <button class="lab-btn" id="tools-windows-defaults" type="button" hidden>Applications par défaut de Windows…</button>
     </section>
     <section data-tool-section="languages" hidden>
       <p>Le langage est reconnu par l’extension du fichier. La coloration fonctionne hors ligne.</p>
@@ -305,6 +306,17 @@
     </form>
   </dialog>
 
+  <aside id="first-run-defaults" class="lab-tools-toast" aria-label="Applications par défaut" hidden>
+    <div>
+      <strong>Ouvrir tes fichiers avec Black Hole ?</strong>
+      <p id="first-run-defaults-status" role="status">Choisis les extensions à associer dans les paramètres Windows.</p>
+    </div>
+    <div class="lab-updates-actions">
+      <button id="first-run-defaults-open" class="lab-btn lab-btn-run" type="button">Choisir les extensions…</button>
+      <button id="first-run-defaults-skip" class="lab-btn" type="button">Garder mes réglages</button>
+    </div>
+  </aside>
+
   <dialog id="updates-dialog" class="lab-updates" aria-labelledby="updates-title">
     <header class="lab-updates-header">
       <h2 id="updates-title">Mises à jour</h2>
@@ -341,6 +353,7 @@
   <script src="arduino/arduino-components.js"></script>
   <script src="arduino/arduino-schematic.js"></script>
   <script src="studio/tools.js"></script>
+  <script src="studio/windows-defaults.js"></script>
   <script src="shell/app.js"></script>
   <script src="release/updates.js"></script>
 </body>
